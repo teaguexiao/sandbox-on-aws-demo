@@ -1,0 +1,2 @@
+e2b_desktop
+boto3
