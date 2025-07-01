@@ -4,13 +4,18 @@ import webbrowser
 import os
 import sys
 import boto3
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-def open_desktop_stream():
+# Configure logger
+logger = logging.getLogger(__name__)
+
+def open_desktop_stream(open_browser=True):
     # Create a new desktop sandbox
+    logger.info("Creating new desktop sandbox...")
     desktop = Sandbox(
             api_key=os.environ.get("API_KEY"),
             template=os.environ.get("TEMPLATE"),
@@ -20,7 +25,7 @@ def open_desktop_stream():
                 "purpose": "e2b-desktop-test"
             }
         )
-    print(f"Sandbox ID: {desktop.sandbox_id}")
+    logger.info(f"Sandbox ID: {desktop.sandbox_id}")
 
     # Stream the application's window
     # Note: There can be only one stream at a time
@@ -32,28 +37,34 @@ def open_desktop_stream():
     # Get the stream auth key
     auth_key = desktop.stream.get_auth_key()
 
-    # Print the stream URL
+    # Get and log the stream URL
     stream_url = desktop.stream.get_url(auth_key=auth_key)
-    print('Stream URL:', stream_url)
-    # Try to open in Chrome
-    try:
-        # Try the default Chrome browser
-        webbrowser.get("chrome").open(stream_url)
-    except webbrowser.Error:
-        # Fallback for macOS: use 'open -a "Google Chrome"'
-        if sys.platform == "darwin":
-            os.system(f'open -a "Google Chrome" "{stream_url}"')
-        else:
-            # Fallback to default browser
-            webbrowser.open(stream_url)
+    logger.info(f'Stream URL: {stream_url}')
+    
+    # Open in browser if requested
+    if open_browser:
+        try:
+            # Try the default Chrome browser
+            webbrowser.get("chrome").open(stream_url)
+        except webbrowser.Error:
+            # Fallback for macOS: use 'open -a "Google Chrome"'
+            if sys.platform == "darwin":
+                os.system(f'open -a "Google Chrome" "{stream_url}"')
+            else:
+                # Fallback to default browser
+                webbrowser.open(stream_url)
+    
     return desktop
 
 def create_sts():
     try:
+        logger.info("Creating STS session...")
         access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
         secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
         if not access_key_id or not secret_access_key:
-            raise Exception("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set in .env file")
+            error_msg = "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set in .env file"
+            logger.error(error_msg)
+            raise Exception(error_msg)
         
         sts_client = boto3.client('sts',
             aws_access_key_id=access_key_id,
@@ -73,20 +84,28 @@ def create_sts():
         
         credentials = response['Credentials']
         
-        print(f"Successfully created STS session, valid until {credentials['Expiration']}")
+        logger.info(f"Successfully created STS session, valid until {credentials['Expiration']}")
         return credentials
 
     except ClientError as e:
-        print(f"Failed to create STS session: {e}")
+        error_msg = f"Failed to create STS session: {e}"
+        logger.error(error_msg)
         return None
 
 def setup_environment(desktop):
+    logger.info("Setting up sandbox environment...")
     # Copy files to sandbox
-    with open('bedrock.py', 'r') as f1, open('.env', 'r') as f2:
-        _code = f1.read()
-        desktop.files.write('/tmp/bedrock.py', _code)
-        _env = f2.read()
-        desktop.files.write('~/.env', _env)
+    try:
+        logger.info("Copying files to sandbox...")
+        with open('bedrock.py', 'r') as f1, open('.env', 'r') as f2:
+            _code = f1.read()
+            desktop.files.write('/tmp/bedrock.py', _code)
+            logger.info("Copied bedrock.py to /tmp/bedrock.py")
+            _env = f2.read()
+            desktop.files.write('~/.env', _env)
+            logger.info("Copied .env to ~/.env")
+    except Exception as e:
+        logger.error(f"Error copying files: {e}")
         
     credentials = create_sts()
     creds_content = f"""[default]
@@ -97,20 +116,37 @@ def setup_environment(desktop):
     desktop.files.write('~/.aws/credentials', creds_content)
 
     # Install uv package manager
+    logger.info("Installing uv package manager...")
     desktop.commands.run('curl -LsSf https://astral.sh/uv/install.sh | sh; source $HOME/.local/bin/env; uv venv --python 3.11;')
+    
     # Install required packages
+    logger.info("Installing required Python packages...")
     desktop.commands.run('uv pip install boto3 langchain-aws pydantic browser_use==0.3.2 browser-use[memory] playwright')
+    
     # Install Playwright browser
+    logger.info("Installing Playwright browser...")
     desktop.commands.run('uv run playwright install chromium --with-deps --no-shell')
+    
+    logger.info("Environment setup completed successfully")
 
 
 def main(query):
+    logger.info(f"Starting main workflow with query: {query}")
     desktop = open_desktop_stream()
     setup_environment(desktop)
-    result = desktop.commands.run(f"uv run python3 /tmp/bedrock.py --query '{query}'", on_stdout=lambda data: print(data), on_stderr=lambda data: print(data), timeout=1200)
-    print(result)
+    
+    logger.info(f"Running bedrock.py with query: {query}")
+    result = desktop.commands.run(
+        f"uv run python3 /tmp/bedrock.py --query '{query}'", 
+        on_stdout=lambda data: logger.info(f"[BEDROCK] {data}"), 
+        on_stderr=lambda data: logger.error(f"[BEDROCK] {data}"), 
+        timeout=1200
+    )
+    logger.info(f"Task completed with result: {result}")
+    
+    logger.info("Killing desktop sandbox...")
     desktop.kill()
+    logger.info("Desktop sandbox killed successfully")
 
 if __name__ == "__main__":
     main("Predict the weather conditions in Wuxi, Jiangsu, China within the next 2 weeks, Use China temperature measurement units.")
-    # main("Tell me what is vibe coding and summarize its future trend.")
