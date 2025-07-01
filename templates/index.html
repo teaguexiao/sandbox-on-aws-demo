@@ -3,78 +3,264 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sandbox Desktop WebUI</title>
+    <title>Sandbox on AWS Demo UI</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .nav-tabs .nav-link {
+            color: #495057;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            font-weight: 600;
+        }
+        .hero-section {
+            background-color: #f8f9fa;
+            padding: 3rem 0;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .feature-card {
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            height: 100%;
+            transition: transform 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #0d6efd;
+        }
+        .architecture-img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .tech-badge {
+            background-color: #e9ecef;
+            color: #495057;
+            font-weight: 500;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid">
         <div class="row header">
             <div class="col-12">
-                <h1>Sandbox Desktop WebUI</h1>
+                <h1>Sandbox on AWS Demo UI</h1>
             </div>
         </div>
         
-        <div class="row main-content">
-            <!-- Left panel: Desktop stream -->
-            <div class="col-md-7 stream-panel">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h3>Desktop Stream</h3>
-                        <div id="sandbox-controls" class="d-flex align-items-center" style="display: none;">
-                            <span id="sandbox-timer" class="badge bg-secondary me-2 py-2 px-3 fs-6">00:00</span>
-                            <span id="sandbox-id" class="badge bg-info me-2"></span>
-                            <button id="stop-desktop" class="btn btn-danger py-1 px-2 fs-6">Stop</button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="stream-container">
-                            <div id="stream-placeholder">
-                                <p>No active stream. Start a new desktop to begin.</p>
-                            </div>
-                            <iframe id="stream-frame" style="display: none;"></iframe>
-                        </div>
+        <!-- Navigation Tabs -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <ul class="nav nav-tabs" id="sandboxTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/browser-use">Browser Use</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/computer-use">Computer Use</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ai-coding">AI Coding</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ai-search">AI Search</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ai-ppt">AI PPT</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Hero Section -->
+        <div class="row hero-section">
+            <div class="col-md-8 offset-md-2 text-center">
+                <h2 class="display-4 mb-4">Sandbox on AWS</h2>
+                <p class="lead mb-4">A powerful solution <strong>purpose-built for agentic workloads</strong>, providing secure, scalable, and flexible AI agent environments using E2B sandbox, AWS Lambda, and AWS Fargate.</p>
+                <div class="d-flex justify-content-center flex-wrap">
+                    <span class="badge tech-badge p-2">E2B Sandbox</span>
+                    <span class="badge tech-badge p-2">AWS Lambda</span>
+                    <span class="badge tech-badge p-2">AWS Fargate</span>
+                    <span class="badge tech-badge p-2">Claude 3.7/4 Sonnet</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Agentic Workload Section -->
+        <div class="row mb-5">
+            <div class="col-md-10 offset-md-1">
+                <div class="alert alert-primary" role="alert">
+                    <h4 class="alert-heading">Optimized for Agentic Workloads</h4>
+                    <p>Sandbox on AWS is specifically designed to handle the unique requirements of AI agents. Unlike traditional computing environments, our solution provides the perfect balance of freedom and control that autonomous agents need to perform complex tasks while maintaining security and reliability.</p>
+                    <hr>
+                    <p class="mb-0">Whether your agents need to browse the web, use desktop applications, write code, or create presentations, our infrastructure provides the ideal foundation for all agentic scenarios.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Features Section -->
+        <div class="row mb-5">
+            <div class="col-12 text-center mb-4">
+                <h3>Key Benefits</h3>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card feature-card p-4">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">🔒</div>
+                        <h4 class="card-title">Secure Execution</h4>
+                        <p class="card-text">Run AI agents in isolated sandboxes with controlled access to resources, ensuring security and preventing unauthorized actions.</p>
                     </div>
                 </div>
             </div>
             
-            <!-- Right panel: Controls and logs -->
-            <div class="col-md-5 control-panel">
-                <div class="card">
-                    <div class="card-header">
-                        <h3>Controls</h3>
+            <div class="col-md-4 mb-4">
+                <div class="card feature-card p-4">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">⚡</div>
+                        <h4 class="card-title">Scalable Infrastructure</h4>
+                        <p class="card-text">Leverage AWS Lambda and Fargate to automatically scale resources based on demand, handling multiple concurrent agent tasks efficiently.</p>
                     </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="card feature-card p-4">
+                    <div class="card-body text-center">
+                        <div class="feature-icon">🧩</div>
+                        <h4 class="card-title">Flexible Use Cases</h4>
+                        <p class="card-text">Support diverse scenarios from browser automation to coding assistance, search, and presentation creation with a unified infrastructure.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Architecture Section -->
+        <div class="row mb-5">
+            <div class="col-12 text-center mb-4">
+                <h3>Architecture Overview</h3>
+            </div>
+            
+            <div class="col-md-10 offset-md-1 text-center">
+                <img src="/static/images/sandbox-on-aws-architecutre-diagram.png" alt="Sandbox on AWS Architecture Diagram" class="architecture-img mb-4">
+                <p class="text-muted">The architecture leverages E2B sandboxes for secure execution environments, AWS Lambda for serverless compute, and AWS Fargate for containerized workloads.</p>
+            </div>
+        </div>
+        
+        <!-- Use Cases Section -->
+        <div class="row mb-5">
+            <div class="col-12 text-center mb-4">
+                <h3>Supported Scenarios</h3>
+            </div>
+            
+            <div class="col-md-6 offset-md-3">
+                <div class="list-group">
+                    <a href="/browser-use" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        Browser Use
+                        <span class="badge bg-primary rounded-pill">Active</span>
+                    </a>
+                    <a href="/computer-use" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        Computer Use
+                        <span class="badge bg-secondary rounded-pill">Coming Soon</span>
+                    </a>
+                    <a href="/ai-coding" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        AI Coding
+                        <span class="badge bg-secondary rounded-pill">Coming Soon</span>
+                    </a>
+                    <a href="/ai-search" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        AI Search
+                        <span class="badge bg-secondary rounded-pill">Coming Soon</span>
+                    </a>
+                    <a href="/ai-ppt" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        AI PPT
+                        <span class="badge bg-secondary rounded-pill">Coming Soon</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Agent Capabilities -->
+        <div class="row mb-5">
+            <div class="col-12 text-center mb-4">
+                <h3>Agent Capabilities</h3>
+            </div>
+            
+            <div class="col-md-10 offset-md-1">
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Autonomous Operation</h5>
+                            </div>
+                            <div class="card-body">
+                                <ul>
+                                    <li>Self-directed task execution without human intervention</li>
+                                    <li>Dynamic decision-making based on environment feedback</li>
+                                    <li>Error recovery and alternative path exploration</li>
+                                    <li>Long-running task persistence across sessions</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Tool Interaction</h5>
+                            </div>
+                            <div class="card-body">
+                                <ul>
+                                    <li>Web browsing with full DOM manipulation</li>
+                                    <li>File system operations for data processing</li>
+                                    <li>Application control for complex workflows</li>
+                                    <li>API integration for external service access</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Technical Details -->
+        <div class="row mb-5">
+            <div class="col-12 text-center mb-4">
+                <h3>Technical Details</h3>
+            </div>
+            
+            <div class="col-md-10 offset-md-1">
+                <div class="card">
                     <div class="card-body">
-                        <form id="task-form">
-                            <div class="mb-3">
-                                <label for="task-input" class="form-label">Task Prompt:</label>
-                                <textarea id="task-input" class="form-control" rows="4" placeholder="Enter your task here..."></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Example Tasks:</label>
-                                <div class="d-flex flex-wrap gap-2 mb-2">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary example-task" data-prompt="Search for recent news about artificial intelligence breakthroughs and summarize the top 3 developments.">AI News</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary example-task" data-prompt="Find and compare prices for iPhone 15 Pro Max across major online retailers. Create a comparison table.">Price Compare</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary example-task" data-prompt="Research the most popular tourist destinations in Japan and create an itinerary for a 7-day trip.">Travel Plan</button>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary example-task" data-prompt="Find the best-rated restaurants in San Francisco with vegetarian options and outdoor seating.">Restaurant Search</button>
-                                </div>
-                            </div>
-                            
-                            <div class="d-flex flex-wrap gap-2 mb-4">
-                                <button type="button" id="run-workflow" class="btn btn-sm btn-info">Run Task</button>
-                            </div>
-                            
-                            <div class="logs-section mt-4">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h4>Logs</h4>
-                                    <button id="clear-logs" class="btn btn-sm btn-outline-secondary">Clear</button>
-                                </div>
-                                <div id="log-container">
-                                    <div id="logs"></div>
-                                </div>
-                            </div>
-                        </form>
+                        <h5>Core Technologies</h5>
+                        <ul>
+                            <li><strong>E2B Sandbox:</strong> Secure, isolated environments for running agent tasks</li>
+                            <li><strong>AWS Lambda:</strong> Serverless compute for handling API requests and lightweight processing</li>
+                            <li><strong>AWS Fargate:</strong> Container orchestration for more complex, resource-intensive workloads</li>
+                            <li><strong>Claude 3.7/4 Sonnet:</strong> Advanced AI model for intelligent agent capabilities</li>
+                        </ul>
+                        
+                        <h5 class="mt-4">Key Features</h5>
+                        <ul>
+                            <li>Isolated execution environments for security</li>
+                            <li>Auto-scaling based on demand</li>
+                            <li>Real-time desktop streaming</li>
+                            <li>Comprehensive logging and monitoring</li>
+                            <li>Multi-scenario support with unified infrastructure</li>
+                            <li><strong>Agent-friendly APIs and interfaces</strong></li>
+                            <li><strong>Stateful agent execution across sessions</strong></li>
+                            <li><strong>Tool-use capabilities for autonomous agents</strong></li>
+                        </ul>
                     </div>
                 </div>
             </div>

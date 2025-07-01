@@ -207,7 +207,27 @@ class WebSocketLogger:
 # Main route
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "stream_url": stream_url})
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/browser-use", response_class=HTMLResponse)
+async def get_browser_use(request: Request):
+    return templates.TemplateResponse("browser-use.html", {"request": request, "stream_url": stream_url})
+
+@app.get("/computer-use", response_class=HTMLResponse)
+async def get_computer_use(request: Request):
+    return templates.TemplateResponse("computer-use.html", {"request": request})
+
+@app.get("/ai-coding", response_class=HTMLResponse)
+async def get_ai_coding(request: Request):
+    return templates.TemplateResponse("ai-coding.html", {"request": request})
+
+@app.get("/ai-search", response_class=HTMLResponse)
+async def get_ai_search(request: Request):
+    return templates.TemplateResponse("ai-search.html", {"request": request})
+
+@app.get("/ai-ppt", response_class=HTMLResponse)
+async def get_ai_ppt(request: Request):
+    return templates.TemplateResponse("ai-ppt.html", {"request": request})
 
 # WebSocket endpoint
 @app.websocket("/ws")
