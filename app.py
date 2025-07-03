@@ -265,31 +265,81 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.post("/start-desktop")
 async def start_desktop():
     global desktop_instance, stream_url
-    
+    '''
     if desktop_instance:
         await manager.send_json({"type": "info", "data": "Killing existing desktop instance..."})
         try:
             desktop_instance.kill()
         except Exception as e:
             logger.error(f"Error killing desktop: {e}")
-    
+    '''
     await manager.send_json({"type": "info", "data": "Starting desktop stream..."})
     
-    # Run in a separate thread to avoid blocking
-    desktop_instance = open_desktop_stream(open_browser=False)
-    stream_url = desktop_instance.stream.get_url(auth_key=desktop_instance.stream.get_auth_key())
-    
-    # Get timeout from environment variables or use default
-    timeout = int(os.environ.get("TIMEOUT", 1200))
-    
-    await manager.send_json({
-        "type": "desktop_started", 
-        "data": {
-            "sandbox_id": desktop_instance.sandbox_id,
-            "stream_url": stream_url,
-            "timeout": timeout
-        }
-    })
+    try:
+        logger.info("Calling open_desktop_stream function...")
+        # Run in a separate thread to avoid blocking
+        desktop_instance = None
+        try:
+            # Log sandbox creation attempt
+            logger.info("Creating sandbox via open_desktop_stream...")
+            desktop_instance = open_desktop_stream(open_browser=False)
+            logger.info(f"Sandbox created successfully with ID: {desktop_instance.sandbox_id if desktop_instance else 'unknown'}")
+            
+            # Log sandbox object details
+            for attr in ['sandbox_id', 'status', 'ready']:
+                if hasattr(desktop_instance, attr):
+                    logger.info(f"Sandbox {attr}: {getattr(desktop_instance, attr)}")
+                else:
+                    logger.info(f"Sandbox has no attribute '{attr}'")
+            
+            # Log stream object details
+            if hasattr(desktop_instance, 'stream'):
+                logger.info("Stream object exists, checking properties...")
+                stream_obj = desktop_instance.stream
+                for attr in ['id', 'status']:
+                    if hasattr(stream_obj, attr):
+                        logger.info(f"Stream {attr}: {getattr(stream_obj, attr)}")
+            else:
+                logger.error("Sandbox has no 'stream' attribute!")
+                raise Exception("Sandbox missing stream attribute")
+        except Exception as e:
+            logger.error(f"Error creating sandbox: {e}", exc_info=True)
+            await manager.send_json({"type": "error", "data": f"Error creating sandbox: {str(e)}"})  
+            return {"status": "error", "message": f"Error creating sandbox: {str(e)}"}
+        
+        # Get auth key and stream URL
+        try:
+            logger.info("Getting stream auth key...")
+            auth_key = desktop_instance.stream.get_auth_key()
+            logger.info("Auth key retrieved successfully")
+            
+            logger.info("Getting stream URL...")
+            stream_url = desktop_instance.stream.get_url(auth_key=auth_key)
+            logger.info(f"Stream URL generated: {stream_url}")
+        except Exception as e:
+            logger.error(f"Error getting stream URL: {e}", exc_info=True)
+            await manager.send_json({"type": "error", "data": f"Error getting stream URL: {str(e)}"})  
+            return {"status": "error", "message": f"Error getting stream URL: {str(e)}"}
+        
+        # Get timeout from environment variables or use default
+        timeout = int(os.environ.get("TIMEOUT", 1200))
+        logger.info(f"Using timeout value: {timeout}")
+        
+        # Send success message to client
+        logger.info("Sending desktop_started event to client")
+        await manager.send_json({
+            "type": "desktop_started", 
+            "data": {
+                "sandbox_id": desktop_instance.sandbox_id,
+                "stream_url": stream_url,
+                "timeout": timeout
+            }
+        })
+        logger.info("Desktop started event sent successfully")
+    except Exception as e:
+        logger.error(f"Unexpected error in start_desktop: {e}", exc_info=True)
+        await manager.send_json({"type": "error", "data": f"Unexpected error: {str(e)}"})  
+        return {"status": "error", "message": f"Unexpected error: {str(e)}"}
     
     return {"status": "success", "stream_url": stream_url}
 
@@ -349,6 +399,7 @@ async def setup_env_in_background():
     """
         desktop_instance.files.write('~/.aws/credentials', creds_content)
         await manager.send_json({"type": "info", "data": "AWS credentials created successfully"})
+        
         
         # Step 3: Install uv package manager (in background mode)
         await manager.send_json({"type": "info", "data": "Installing uv package manager..."})
@@ -412,6 +463,7 @@ async def setup_env_in_background():
             
         await manager.send_json({"type": "info", "data": "Environment setup completed successfully"})
         
+
     except Exception as e:
         logger.error(f"Error setting up environment: {e}")
         await manager.send_json({"type": "error", "data": f"Error setting up environment: {str(e)}"})
@@ -453,6 +505,8 @@ async def run_task_in_background(query: str):
         # Start the command in BACKGROUND mode with the proper E2B API
         # This returns immediately but keeps the process running
         logger.info("Starting task in background mode")
+        #cmd = f"env"
+        #cmd = f"python3.11 /tmp/bedrock.py --query '{query}'"
         cmd = f"uv run python3 /tmp/bedrock.py --query '{query}'"
         logger.info(f"Running command in background: {cmd}")
         current_command = desktop_instance.commands.run(

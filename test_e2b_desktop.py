@@ -13,33 +13,61 @@ load_dotenv()
 # Configure logger
 logger = logging.getLogger(__name__)
 
-def open_desktop_stream(open_browser=True):
+def open_desktop_stream(open_browser=False):
     # Create a new desktop sandbox
     logger.info("Creating new desktop sandbox...")
-    desktop = Sandbox(
-            api_key=os.environ.get("API_KEY"),
-            template=os.environ.get("TEMPLATE"),
-            domain=os.environ.get("DOMAIN"),
-            timeout=int(os.environ.get("TIMEOUT", 1200)),
-            metadata={
-                "purpose": "e2b-desktop-test"
-            }
-        )
-    logger.info(f"Sandbox ID: {desktop.sandbox_id}")
+    try:
+        # Log environment variables (redacting sensitive values)
+        api_key = os.environ.get("API_KEY")
+        template = os.environ.get("TEMPLATE")
+        domain = os.environ.get("DOMAIN")
+        timeout = int(os.environ.get("TIMEOUT", 1200))
+        
+        logger.info(f"Using template: {template}, domain: {domain}, timeout: {timeout}")
+        logger.info(f"API_KEY present: {bool(api_key)}")
+        
+        # Create sandbox with detailed error handling
+        logger.info("Initializing Sandbox object...")
+        desktop = Sandbox(
+                api_key=api_key,
+                template=template,
+                domain=domain,
+                timeout=timeout,
+                metadata={
+                    "purpose": "e2b-desktop-test"
+                }
+            )
+        logger.info(f"Sandbox object initialized, sandbox_id: {desktop.sandbox_id}")
+        
+        # Check if sandbox has required attributes
+        logger.info(f"Sandbox status: {getattr(desktop, 'status', 'unknown')}")
+        logger.info(f"Sandbox ready: {getattr(desktop, 'ready', False)}")
+    except Exception as e:
+        logger.error(f"Error creating sandbox: {e}", exc_info=True)
+        raise
 
     # Stream the application's window
     # Note: There can be only one stream at a time
     # You need to stop the current stream before streaming another application
-    desktop.stream.start(
-        require_auth=True
-    )
+    try:
+        logger.info("Starting stream...")
+        desktop.stream.start(
+            require_auth=True
+        )
+        logger.info("Stream started successfully")
 
-    # Get the stream auth key
-    auth_key = desktop.stream.get_auth_key()
+        # Get the stream auth key
+        logger.info("Getting stream auth key...")
+        auth_key = desktop.stream.get_auth_key()
+        logger.info("Auth key retrieved successfully")
 
-    # Get and log the stream URL
-    stream_url = desktop.stream.get_url(auth_key=auth_key)
-    logger.info(f'Stream URL: {stream_url}')
+        # Get and log the stream URL
+        logger.info("Getting stream URL...")
+        stream_url = desktop.stream.get_url(auth_key=auth_key)
+        logger.info(f'Stream URL generated: {stream_url}')
+    except Exception as e:
+        logger.error(f"Error setting up stream: {e}", exc_info=True)
+        raise
     
     # Open in browser if requested
     if open_browser:
