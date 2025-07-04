@@ -372,6 +372,7 @@ async def setup_env_in_background():
         await manager.send_json({"type": "info", "data": "Copying files to sandbox..."})
         
         try:
+            '''
             with open('bedrock.py', 'r') as f1, open('.env', 'r') as f2:
                 _code = f1.read()
                 desktop_instance.files.write('/tmp/bedrock.py', _code)
@@ -380,6 +381,12 @@ async def setup_env_in_background():
                 _env = f2.read()
                 desktop_instance.files.write('~/.env', _env)
                 await manager.send_json({"type": "info", "data": "Copied .env to ~/.env"})
+                '''
+            with open('bedrock.py', 'r') as f1:
+                _code = f1.read()
+                desktop_instance.files.write('/tmp/bedrock.py', _code)
+                await manager.send_json({"type": "info", "data": "Copied bedrock.py to /tmp/bedrock.py"})
+                
         except Exception as e:
             logger.error(f"Error copying files: {e}")
             await manager.send_json({"type": "error", "data": f"Error copying files: {str(e)}"})
@@ -400,51 +407,12 @@ async def setup_env_in_background():
         desktop_instance.files.write('~/.aws/credentials', creds_content)
         await manager.send_json({"type": "info", "data": "AWS credentials created successfully"})
         
-        
-        # Step 3: Install uv package manager (in background mode)
-        await manager.send_json({"type": "info", "data": "Installing uv package manager..."})
+        await manager.send_json({"type": "info", "data": "Installing Playwright browser..."})
+
         stdout_logger = WebSocketLogger(manager, "stdout")
         stderr_logger = WebSocketLogger(manager, "stderr")
-        
-        cmd = 'curl -LsSf https://astral.sh/uv/install.sh | sh; source $HOME/.local/bin/env; uv venv --python 3.11;'
-        logger.info(f"Running command in background: {cmd}")
-        current_command = desktop_instance.commands.run(
-            cmd,
-            on_stdout=stdout_logger,
-            on_stderr=stderr_logger,
-            background=True
-        )
-        logger.info(f"Command started with id: {getattr(current_command, 'id', 'unknown')}")
-        
-        # Wait for command to complete
-        result = await asyncio.to_thread(current_command.wait)
-        # CommandResult object doesn't have a get method, access exit_code directly
-        if hasattr(result, 'exit_code') and result.exit_code != 0:
-            await manager.send_json({"type": "error", "data": "Failed to install uv package manager"})
-            return
-        
-        # Step 4: Install required packages (in background mode)
-        await manager.send_json({"type": "info", "data": "Installing required Python packages..."})
-        cmd = 'uv pip install boto3 langchain-aws pydantic browser_use==0.3.2 browser-use[memory] playwright'
-        logger.info(f"Running command in background: {cmd}")
-        current_command = desktop_instance.commands.run(
-            cmd,
-            on_stdout=stdout_logger,
-            on_stderr=stderr_logger,
-            background=True
-        )
-        logger.info(f"Command started with id: {getattr(current_command, 'id', 'unknown')}")
-        
-        # Wait for command to complete
-        result = await asyncio.to_thread(current_command.wait)
-        # CommandResult object doesn't have a get method, access exit_code directly
-        if hasattr(result, 'exit_code') and result.exit_code != 0:
-            await manager.send_json({"type": "error", "data": "Failed to install required packages"})
-            return
-        
-        # Step 5: Install Playwright browser (in background mode)
-        await manager.send_json({"type": "info", "data": "Installing Playwright browser..."})
-        cmd = 'uv run playwright install chromium --with-deps --no-shell'
+
+        cmd = 'playwright install chromium --with-deps --no-shell'
         logger.info(f"Running command in background: {cmd}")
         current_command = desktop_instance.commands.run(
             cmd,
@@ -460,7 +428,8 @@ async def setup_env_in_background():
         if hasattr(result, 'exit_code') and result.exit_code != 0:
             await manager.send_json({"type": "error", "data": "Failed to install Playwright browser"})
             return
-            
+
+
         await manager.send_json({"type": "info", "data": "Environment setup completed successfully"})
         
 
@@ -506,8 +475,8 @@ async def run_task_in_background(query: str):
         # This returns immediately but keeps the process running
         logger.info("Starting task in background mode")
         #cmd = f"env"
-        #cmd = f"python3.11 /tmp/bedrock.py --query '{query}'"
-        cmd = f"uv run python3 /tmp/bedrock.py --query '{query}'"
+        cmd = f"python3.11 /tmp/bedrock.py --query '{query}'"
+        #cmd = f"uv run python3 /tmp/bedrock.py --query '{query}'"
         logger.info(f"Running command in background: {cmd}")
         current_command = desktop_instance.commands.run(
             cmd,
@@ -624,4 +593,4 @@ if __name__ == "__main__":
     logger.info("All logs will be streamed to the WebUI")
     
     # Start the FastAPI application
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run("app:app", host="0.0.0.0", port=80, reload=True, log_level="info")

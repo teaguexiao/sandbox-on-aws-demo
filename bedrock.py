@@ -5,9 +5,6 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from dotenv import load_dotenv
-load_dotenv()
-
 import boto3  # type: ignore
 from botocore.config import Config
 from langchain_aws import ChatBedrockConverse  # type: ignore
@@ -21,7 +18,7 @@ def get_llm():
 	bedrock_client = boto3.client('bedrock-runtime', region_name='us-west-2', config=config)
 
 	return ChatBedrockConverse(
-		model_id=os.environ.get("MODEL_ID"),
+		model_id="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
 		temperature=0.0,
 		max_tokens=None,
 		client=bedrock_client,
