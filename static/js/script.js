@@ -255,6 +255,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear logs
     clearLogsBtn.addEventListener('click', function() {
         logsContainer.innerHTML = '';
+        // Send message to server to clear logs buffer
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({action: 'clear_logs'}));
+        }
         addLog('Logs cleared', 'info');
     });
     

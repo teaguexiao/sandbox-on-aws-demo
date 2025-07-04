@@ -2,8 +2,8 @@ import os
 import asyncio
 import sys
 import threading
-from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, BackgroundTasks
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends, Response, Cookie
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
@@ -13,6 +13,7 @@ import logging
 from datetime import datetime
 from dotenv import load_dotenv
 import io
+import secrets
 
 # Import functions from test-e2b-desktop.py
 from test_e2b_desktop import open_desktop_stream, setup_environment, create_sts
@@ -26,6 +27,10 @@ class WebSocketLogHandler(logging.Handler):
         super().__init__()
         self.connection_manager = connection_manager
         self.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+        self.buffer = []
+        
+    def clear_buffer(self):
+        """Clear the log buffer"""
         self.buffer = []
 
     def emit(self, record):
@@ -204,34 +209,125 @@ class WebSocketLogger:
         # Use print instead of logger to avoid duplicate logs
         print(f"[{self.log_type}] {data}")
 
+# Session management
+sessions = {}
+
+def get_current_user(session_token: str = Cookie(None)):
+    # Check if login is enabled
+    login_enabled = os.getenv("LOGIN_ENABLE", "true").lower() == "true"
+    
+    # If login is disabled, return a default user
+    if not login_enabled:
+        return {"username": "default_user", "aws_login": "", "customer_name": ""}
+    
+    # Otherwise, check for valid session
+    if session_token and session_token in sessions:
+        return sessions[session_token]
+    return None
+
+# Login route
+@app.get("/login", response_class=HTMLResponse)
+async def get_login(request: Request):
+    # Check if login is enabled
+    login_enabled = os.getenv("LOGIN_ENABLE", "true").lower() == "true"
+    
+    # If login is disabled, redirect to home page
+    if not login_enabled:
+        return RedirectResponse(url="/", status_code=303)
+        
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login", response_class=HTMLResponse)
+async def post_login(request: Request, response: Response, username: str = Form(...), password: str = Form(...), aws_login: str = Form(""), customer_name: str = Form("")):
+    # Check if login is enabled
+    login_enabled = os.getenv("LOGIN_ENABLE", "true").lower() == "true"
+    
+    # If login is disabled, redirect to home page
+    if not login_enabled:
+        return RedirectResponse(url="/", status_code=303)
+    
+    # Get credentials from .env
+    expected_username = os.getenv("LOGIN_USERNAME")
+    expected_password = os.getenv("LOGIN_PASSWORD")
+    
+    # Log the login attempt
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"{timestamp} | Username: {username} | Password: {'*' * len(password)} | AWS Login: {aws_login} | Customer Name: {customer_name}\n"
+    
+    try:
+        with open("login_history.txt", "a") as log_file:
+            log_file.write(log_entry)
+    except Exception as e:
+        logger.error(f"Failed to write to login history: {e}")
+    
+    # Validate credentials
+    if username == expected_username and password == expected_password:
+        # Create session
+        session_token = secrets.token_hex(16)
+        sessions[session_token] = {"username": username, "aws_login": aws_login, "customer_name": customer_name}
+        
+        # Set cookie and redirect
+        response = RedirectResponse(url="/", status_code=303)
+        response.set_cookie(key="session_token", value=session_token, httponly=True)
+        return response
+    else:
+        return templates.TemplateResponse(
+            "login.html", 
+            {"request": request, "error": "Invalid username or password"}
+        )
+
+# Logout route
+@app.get("/logout")
+async def logout(response: Response):
+    response = RedirectResponse(url="/login", status_code=303)
+    response.delete_cookie(key="session_token")
+    return response
+
 # Main route
 @app.get("/", response_class=HTMLResponse)
-async def get_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+async def get_index(request: Request, user: dict = Depends(get_current_user)):
+    return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 @app.get("/browser-use", response_class=HTMLResponse)
-async def get_browser_use(request: Request):
-    return templates.TemplateResponse("browser-use.html", {"request": request, "stream_url": stream_url})
+async def get_browser_use(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("browser-use.html", {"request": request, "user": user, "stream_url": stream_url})
 
 @app.get("/computer-use", response_class=HTMLResponse)
-async def get_computer_use(request: Request):
-    return templates.TemplateResponse("computer-use.html", {"request": request})
+async def get_computer_use(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("computer-use.html", {"request": request, "user": user})
 
 @app.get("/ai-coding", response_class=HTMLResponse)
-async def get_ai_coding(request: Request):
-    return templates.TemplateResponse("ai-coding.html", {"request": request})
+async def get_ai_coding(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("ai-coding.html", {"request": request, "user": user})
 
 @app.get("/ai-search", response_class=HTMLResponse)
-async def get_ai_search(request: Request):
-    return templates.TemplateResponse("ai-search.html", {"request": request})
+async def get_ai_search(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("ai-search.html", {"request": request, "user": user})
 
 @app.get("/ai-ppt", response_class=HTMLResponse)
-async def get_ai_ppt(request: Request):
-    return templates.TemplateResponse("ai-ppt.html", {"request": request})
+async def get_ai_ppt(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("ai-ppt.html", {"request": request, "user": user})
 
 # WebSocket endpoint
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, session_token: Optional[str] = Cookie(None)):
+    # Check if login is enabled
+    login_enabled = os.getenv("LOGIN_ENABLE", "true").lower() == "true"
+    
+    # If login is enabled, check authentication
+    if login_enabled and (not session_token or session_token not in sessions):
+        await websocket.close(code=1008)  # Policy violation
+        return
     await manager.connect(websocket)
     
     # Send any buffered logs when a client connects
@@ -244,20 +340,21 @@ async def websocket_endpoint(websocket: WebSocket):
         for log_entry in stdout_capture.buffer:
             await websocket.send_json(log_entry)
     
-    if hasattr(stderr_capture, 'buffer'):
-        for log_entry in stderr_capture.buffer:
-            await websocket.send_json(log_entry)
-    
-    # Send any messages in the manager's queue
-    if manager.message_queue:
-        for message in manager.message_queue:
-            await websocket.send_json(message)
-        # Clear the queue after sending
-        manager.message_queue = []
-    
     try:
         while True:
-            await websocket.receive_text()
+            # Wait for messages from the client
+            data = await websocket.receive_text()
+            try:
+                message = json.loads(data)
+                if message.get('action') == 'clear_logs':
+                    # Clear the log buffer
+                    ws_handler.clear_buffer()
+                    # Clear stdout/stderr buffers too
+                    stdout_capture.buffer = []
+                    stderr_capture.buffer = []
+                    logger.info("Logs cleared by client request")
+            except json.JSONDecodeError:
+                logger.error(f"Invalid JSON received: {data}")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
@@ -593,4 +690,4 @@ if __name__ == "__main__":
     logger.info("All logs will be streamed to the WebUI")
     
     # Start the FastAPI application
-    uvicorn.run("app:app", host="0.0.0.0", port=80, reload=True, log_level="info")
+    uvicorn.run("app:app", host="0.0.0.0", port=8080, log_level="info")
