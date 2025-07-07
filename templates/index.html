@@ -48,6 +48,26 @@
             margin-right: 0.5rem;
             margin-bottom: 0.5rem;
         }
+        
+        /* Enhanced image interaction styles */
+        .architecture-img {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .architecture-img:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        #modalImage {
+            max-height: 80vh;
+            object-fit: contain;
+        }
+        
+        .modal-xl {
+            max-width: 90%;
+        }
     </style>
 </head>
 <body>
@@ -69,10 +89,10 @@
                         <a class="nav-link" href="/browser-use">Browser Use</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/computer-use">Computer Use</a>
+                        <a class="nav-link" href="/ai-coding">AI Coding</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/ai-coding">AI Coding</a>
+                        <a class="nav-link" href="/computer-use">Computer Use</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/ai-search">AI Search</a>
@@ -161,10 +181,15 @@
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-12">
+                    <div class="col-md-6">
                         <h4 class="mb-3">E2B Data Flow</h4>
                         <img src="/static/images/e2b_infra_data_flow_simplify.jpg" alt="E2B Infrastructure Data Flow" class="architecture-img mb-3">
                         <p class="text-muted">This diagram illustrates how data flows through the E2B infrastructure, helping developers understand the technical benefits of this approach.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h4 class="mb-3">Lambda Sandbox Workflow</h4>
+                        <img src="/static/images/lambda_code_interpreter.png" alt="Lambda Sandbox Workflow" class="architecture-img mb-3">
+                        <p class="text-muted">This diagram shows the workflow of the Lambda sandbox code interpreter implementation.</p>
                     </div>
                 </div>
             </div>
@@ -182,12 +207,12 @@
                         Browser Use
                         <span class="badge bg-primary rounded-pill">Active</span>
                     </a>
-                    <a href="/computer-use" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                        Computer Use
-                        <span class="badge bg-secondary rounded-pill">Coming Soon</span>
-                    </a>
                     <a href="/ai-coding" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                         AI Coding
+                        <span class="badge bg-secondary rounded-pill">Coming Soon</span>
+                    </a>
+                    <a href="/computer-use" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        Computer Use
                         <span class="badge bg-secondary rounded-pill">Coming Soon</span>
                     </a>
                     <a href="/ai-search" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
@@ -280,5 +305,23 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/script.js"></script>
+    
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageModalLabel">Image Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" src="" class="img-fluid" alt="Enlarged Image">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

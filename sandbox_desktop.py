@@ -34,7 +34,7 @@ def open_desktop_stream(open_browser=False):
                 domain=domain,
                 timeout=timeout,
                 metadata={
-                    "purpose": "e2b-desktop-test"
+                    "purpose": "sandbox-on-aws"
                 }
             )
         logger.info(f"Sandbox object initialized, sandbox_id: {desktop.sandbox_id}")

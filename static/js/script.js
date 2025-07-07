@@ -311,4 +311,21 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initial log
     addLog('WebUI initialized. Ready to start desktop.', 'info');
+    
+    // Image enlargement functionality
+    const architectureImages = document.querySelectorAll('.architecture-img');
+    const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+    const modalImage = document.getElementById('modalImage');
+    const modalTitle = document.getElementById('imageModalLabel');
+    
+    architectureImages.forEach(img => {
+        img.style.cursor = 'pointer';
+        img.title = 'Click to enlarge';
+        
+        img.addEventListener('click', function() {
+            modalImage.src = this.src;
+            modalTitle.textContent = this.alt || 'Enlarged Image';
+            imageModal.show();
+        });
+    });
 });
