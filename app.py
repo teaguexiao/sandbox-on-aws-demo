@@ -3,7 +3,7 @@ import asyncio
 import sys
 import threading
 from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, BackgroundTasks, Depends, Response, Cookie
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 import io
 import secrets
 from fastapi.middleware.wsgi import WSGIMiddleware
+from pydantic import BaseModel
+import time
 
 # Import functions from e2b-desktop.py
 from sandbox_desktop import open_desktop_stream, setup_environment, create_sts
@@ -25,6 +27,11 @@ from sandbox_browser_use import (
     run_task, run_task_in_background, kill_desktop, run_workflow,
     init_shared_vars
 )
+
+# Import E2B code interpreter
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from e2b_code_interpreter import Sandbox
 
 # Load environment variables
 load_dotenv()
@@ -367,6 +374,63 @@ async def kill_desktop_endpoint():
 async def run_workflow_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
     # Use the imported run_workflow function
     return await run_workflow(query, background_tasks)
+
+# E2B Code Interpreter API endpoints
+class CodeRequest(BaseModel):
+    code: str
+
+# Global sandbox instance
+e2b_sandbox = None
+
+@app.post("/api/e2b/execute")
+async def execute_code(code_request: CodeRequest):
+    """Execute code in the E2B sandbox and return the result"""
+    global e2b_sandbox
+    
+    try:
+        # Initialize sandbox if needed
+        if e2b_sandbox is None:
+            template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "j4ye6s3uoy2ap5fhy7n5")
+            e2b_sandbox = Sandbox(template=template_id, timeout=3600)
+            logger.info(f"Created new E2B sandbox with ID: {e2b_sandbox.sandbox_id}")
+        time.sleep(1)
+        # Execute the code
+        logger.info(f"Executing code in E2B sandbox: {e2b_sandbox.sandbox_id}")
+        result = e2b_sandbox.run_code(code_request.code)
+        
+        return JSONResponse({
+            "success": True,
+            "output": str(result),
+            "sandbox_id": e2b_sandbox.sandbox_id
+        })
+    except Exception as e:
+        logger.error(f"Error executing code in E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/e2b/reset")
+async def reset_sandbox():
+    """Reset the E2B sandbox by creating a new instance"""
+    global e2b_sandbox
+    
+    try:
+        # Create a new sandbox instance
+        template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "j4ye6s3uoy2ap5fhy7n5")
+        e2b_sandbox = Sandbox(template=template_id, timeout=3600)
+        logger.info(f"Reset E2B sandbox with new ID: {e2b_sandbox.sandbox_id}")
+        
+        return JSONResponse({
+            "success": True,
+            "sandbox_id": e2b_sandbox.sandbox_id
+        })
+    except Exception as e:
+        logger.error(f"Error resetting E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
 
 # Initialize shared variables in browser_use.py
 if __name__ == "__main__":
