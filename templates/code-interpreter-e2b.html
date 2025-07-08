@@ -99,14 +99,32 @@
                                         <div class="card-header bg-primary text-white">
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <span>Python Code</span>
-                                                <div id="sandbox-status" class="sandbox-info">Sandbox ID: Not connected</div>
+                                                <div>
+                                                    <span class="sandbox-info" id="sandbox-status">Sandbox ID: Initializing...</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="card-body">
-                                            <textarea id="code-editor">print('Hello, E2B Sandbox!')</textarea>
+                                            <textarea id="code-editor" class="form-control" rows="10">
+# Write your Python code here
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Example: Create a simple plot
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+plt.figure(figsize=(8, 4))
+plt.plot(x, y)
+plt.title('Sine Wave')
+plt.xlabel('x')
+plt.ylabel('sin(x)')
+plt.grid(True)
+plt.show()
+</textarea>
                                             <div class="code-controls d-flex justify-content-between">
-                                                <button id="execute-btn" class="btn btn-success">Execute Code</button>
-                                                <button id="reset-btn" class="btn btn-outline-secondary">Reset Sandbox</button>
+                                                <button id="execute-btn" class="btn btn-primary">Execute Code</button>
+                                                <button id="reset-btn" class="btn btn-secondary">Reset Sandbox</button>
                                             </div>
                                             <div class="mt-4">
                                                 <h5>Output:</h5>

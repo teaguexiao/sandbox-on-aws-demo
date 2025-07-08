@@ -315,17 +315,23 @@ async def get_computer_use(request: Request, user: dict = Depends(get_current_us
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("computer-use.html", {"request": request, "user": user})
 
-@app.get("/ai-coding", response_class=HTMLResponse)
-async def get_ai_coding(request: Request, user: dict = Depends(get_current_user)):
+@app.get("/code-interpreter", response_class=HTMLResponse)
+async def get_code_interpreter(request: Request, user: dict = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("ai-coding.html", {"request": request, "user": user})
+    return templates.TemplateResponse("code-interpreter.html", {"request": request, "user": user})
 
-@app.get("/ai-coding-e2b", response_class=HTMLResponse)
-async def get_ai_coding_e2b(request: Request, user: dict = Depends(get_current_user)):
+@app.get("/code-interpreter-e2b", response_class=HTMLResponse)
+async def get_code_interpreter_e2b(request: Request, user: dict = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("ai-coding-e2b.html", {"request": request, "user": user})
+    return templates.TemplateResponse("code-interpreter-e2b.html", {"request": request, "user": user})
+
+@app.get("/code-interpreter-ec2", response_class=HTMLResponse)
+async def get_code_interpreter_ec2(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("code-interpreter-ec2.html", {"request": request, "user": user})
 
 @app.get("/ai-search", response_class=HTMLResponse)
 async def get_ai_search(request: Request, user: dict = Depends(get_current_user)):
