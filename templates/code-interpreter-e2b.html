@@ -25,12 +25,25 @@
         .output-container {
             background-color: #f8f9fa;
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 0 0 4px 4px;
             padding: 15px;
             min-height: 150px;
             max-height: 300px;
             overflow-y: auto;
             font-family: monospace;
+            white-space: pre-wrap;
+        }
+        #event-log {
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .execution-results .result-section {
+            margin-bottom: 15px;
+        }
+        .execution-results pre {
+            margin: 0;
             white-space: pre-wrap;
         }
         .code-controls {
@@ -40,6 +53,13 @@
             font-size: 0.8rem;
             color: #6c757d;
             margin-top: 5px;
+        }
+        .coming-soon-badge {
+            font-size: 0.65rem;
+            margin-left: 5px;
+            padding: 0.25em 0.5em;
+            vertical-align: middle;
+            font-weight: normal;
         }
     </style>
 </head>
@@ -65,13 +85,13 @@
                         <a class="nav-link active" href="/code-interpreter">Code Interpreter</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/computer-use">Computer Use</a>
+                        <a class="nav-link" href="/computer-use">Computer Use <span class="badge bg-warning text-dark coming-soon-badge">Coming Soon</span></a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/ai-search">AI Search</a>
+                        <a class="nav-link" href="/ai-search">AI Search <span class="badge bg-warning text-dark coming-soon-badge">Coming Soon</span></a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/ai-ppt">AI PPT</a>
+                        <a class="nav-link" href="/ai-ppt">AI PPT <span class="badge bg-warning text-dark coming-soon-badge">Coming Soon</span></a>
                     </li>
                 </ul>
             </div>
@@ -106,21 +126,42 @@
                                         </div>
                                         <div class="card-body">
                                             <textarea id="code-editor" class="form-control" rows="10">
-# Write your Python code here
+# Example: Compute prime numbers using Sieve of Eratosthenes
+# 示例：使用埃拉托斯特尼筛法计算质数
 import numpy as np
-import matplotlib.pyplot as plt
+import time
+from tqdm import tqdm
 
-# Example: Create a simple plot
-x = np.linspace(0, 10, 100)
-y = np.sin(x)
+def sieve_of_eratosthenes(limit):
+    sieve = [True] * (limit + 1)
+    sieve[0] = sieve[1] = False
+    
+    for i in tqdm(range(2, int(np.sqrt(limit)) + 1), desc="Finding primes"):
+        if sieve[i]:
+            for j in range(i*i, limit + 1, i):
+                sieve[j] = False
+        time.sleep(0.01)  # Add delay to extend runtime
+    
+    return [i for i in range(limit + 1) if sieve[i]]
 
-plt.figure(figsize=(8, 4))
-plt.plot(x, y)
-plt.title('Sine Wave')
-plt.xlabel('x')
-plt.ylabel('sin(x)')
-plt.grid(True)
-plt.show()
+# Perform calculation with progress tracking
+print("Starting prime number calculation...")
+start_time = time.time()
+
+# Calculate primes up to 10000
+primes = sieve_of_eratosthenes(10000)
+
+# Generate statistics about the primes
+prime_count = len(primes)
+avg_prime = np.mean(primes)
+max_gaps = []
+
+for i in range(1, len(primes)):
+    max_gaps.append(primes[i] - primes[i-1])
+
+execution_time = time.time() - start_time
+print(f"\nExecution completed in {execution_time:.2f} seconds")
+print(f"\nPrimes: {primes}")
 </textarea>
                                             <div class="code-controls d-flex justify-content-between">
                                                 <button id="execute-btn" class="btn btn-primary">Execute Code</button>
@@ -128,7 +169,24 @@ plt.show()
                                             </div>
                                             <div class="mt-4">
                                                 <h5>Output:</h5>
-                                                <div id="code-output" class="output-container">Results will appear here...</div>
+                                                <div id="execution-log" class="mb-2">
+                                                    <div class="card">
+                                                        <div class="card-header bg-secondary text-white">
+                                                            <h6 class="mb-0">Execution Log</h6>
+                                                        </div>
+                                                        <div class="card-body p-2">
+                                                            <div id="event-log" class="small">Waiting for execution...</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="card">
+                                                    <div class="card-header bg-dark text-white">
+                                                        <h6 class="mb-0">Results</h6>
+                                                    </div>
+                                                    <div class="card-body p-0">
+                                                        <div id="code-output" class="output-container">Results will appear here...</div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -160,9 +218,25 @@ plt.show()
             const executeBtn = document.getElementById('execute-btn');
             const resetBtn = document.getElementById('reset-btn');
             const codeOutput = document.getElementById('code-output');
+            const eventLog = document.getElementById('event-log');
             const sandboxStatus = document.getElementById('sandbox-status');
             
             let currentSandboxId = null;
+            
+            // Function to add event to log with timestamp
+            function logEvent(message, type = 'info') {
+                const now = new Date();
+                const timestamp = now.toLocaleTimeString();
+                const eventClass = type === 'error' ? 'text-danger' : 
+                                   type === 'success' ? 'text-success' : 
+                                   type === 'warning' ? 'text-warning' : 'text-info';
+                
+                const eventElement = document.createElement('div');
+                eventElement.className = eventClass;
+                eventElement.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+                eventLog.appendChild(eventElement);
+                eventLog.scrollTop = eventLog.scrollHeight;
+            }
 
             // Execute code function
             executeBtn.addEventListener('click', async function() {
@@ -176,6 +250,7 @@ plt.show()
                 executeBtn.disabled = true;
                 executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Executing...';
                 codeOutput.textContent = 'Executing code...';
+                logEvent('Starting code execution...', 'info');
 
                 try {
                     const response = await fetch('/api/e2b/execute', {
@@ -189,11 +264,55 @@ plt.show()
                     const result = await response.json();
                     
                     if (result.success) {
-                        codeOutput.textContent = result.output;
+                        logEvent('Code execution completed', 'success');
+                        
+                        // Format the output in a structured way
+                        if (result.output && typeof result.output === 'string') {
+                            // Parse the execution results from the string
+                            try {
+                                // Extract stdout and stderr from the output
+                                const outputData = JSON.parse(result.output.replace('Execution(Results: [], Logs: Logs(stdout: ', '{"stdout":').replace('), stderr: [', ', "stderr":[').replace(']), Error: None)', '}'));
+                                
+                                // Create a structured output
+                                let formattedOutput = '<div class="execution-results">';
+                                
+                                // Add stdout content
+                                if (outputData.stdout && outputData.stdout.length > 0) {
+                                    formattedOutput += '<div class="result-section"><h6 class="text-success">Standard Output:</h6>';
+                                    formattedOutput += '<pre class="p-2 bg-light border rounded">';
+                                    outputData.stdout.forEach(line => {
+                                        formattedOutput += line.replace(/\n/g, '<br>');
+                                    });
+                                    formattedOutput += '</pre></div>';
+                                }
+                                
+                                // Add stderr content if it exists and isn't empty
+                                if (outputData.stderr && outputData.stderr.length > 0) {
+                                    formattedOutput += '<div class="result-section mt-3"><h6 class="text-warning">Progress Output:</h6>';
+                                    formattedOutput += '<pre class="p-2 bg-light border rounded">';
+                                    outputData.stderr.forEach(line => {
+                                        formattedOutput += line.replace(/\n/g, '<br>');
+                                    });
+                                    formattedOutput += '</pre></div>';
+                                }
+                                
+                                formattedOutput += '</div>';
+                                codeOutput.innerHTML = formattedOutput;
+                            } catch (e) {
+                                // Fallback if parsing fails
+                                codeOutput.textContent = result.output;
+                                logEvent('Could not parse structured output', 'warning');
+                            }
+                        } else {
+                            codeOutput.textContent = result.output || 'No output returned';
+                        }
+                        
                         currentSandboxId = result.sandbox_id;
                         sandboxStatus.textContent = `Sandbox ID: ${currentSandboxId}`;
+                        logEvent(`Results displayed from sandbox: ${currentSandboxId}`, 'info');
                     } else {
                         codeOutput.textContent = `Error: ${result.error}`;
+                        logEvent(`Execution error: ${result.error}`, 'error');
                     }
                 } catch (error) {
                     codeOutput.textContent = `Error: ${error.message}`;
@@ -209,6 +328,7 @@ plt.show()
                 // Show loading state
                 resetBtn.disabled = true;
                 resetBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Resetting...';
+                logEvent('Resetting sandbox...', 'info');
                 
                 try {
                     const response = await fetch('/api/e2b/reset', {
@@ -220,9 +340,14 @@ plt.show()
                     if (result.success) {
                         currentSandboxId = result.sandbox_id;
                         sandboxStatus.textContent = `Sandbox ID: ${currentSandboxId}`;
-                        codeOutput.textContent = 'Sandbox reset successfully. Ready for new code execution.';
+                        codeOutput.innerHTML = '<div class="alert alert-success">Sandbox reset successfully. Ready for new code execution.</div>';
+                        logEvent(`New sandbox created with ID: ${currentSandboxId}`, 'success');
+                        // Clear event log when resetting sandbox
+                        eventLog.innerHTML = '';
+                        logEvent('Sandbox initialized and ready', 'info');
                     } else {
-                        codeOutput.textContent = `Error resetting sandbox: ${result.error}`;
+                        codeOutput.innerHTML = `<div class="alert alert-danger">Error resetting sandbox: ${result.error}</div>`;
+                        logEvent(`Failed to reset sandbox: ${result.error}`, 'error');
                     }
                 } catch (error) {
                     codeOutput.textContent = `Error: ${error.message}`;

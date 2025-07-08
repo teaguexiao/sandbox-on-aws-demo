@@ -1,0 +1,175 @@
+from dotenv import load_dotenv
+load_dotenv()
+import os
+import time
+from e2b_code_interpreter import Sandbox
+load_dotenv()
+
+api_key = os.environ.get("API_KEY")
+template = os.environ.get("TEMPLATE")
+domain = os.environ.get("DOMAIN")
+
+class ExecutionResult:
+    """
+    Represents the result of code execution in the sandbox.
+    """
+    def __init__(self, logs: str = ""):
+        self.logs = logs
+        
+    def __str__(self) -> str:
+        return self.logs
+
+class Sandbox:
+    """
+    Manages a sandbox environment for executing code securely.
+    Based on the example code provided.
+    """
+    def __init__(self, template: str = None, timeout: int = 300):
+        """
+        Initialize a new sandbox instance.
+        
+        Args:
+            template: Template ID for the sandbox environment
+            timeout: Timeout in seconds before the sandbox is terminated
+        """
+        self.template = template
+        self.timeout = timeout
+        
+        # Create a new sandbox instance
+        self.sandbox_id = f"sandbox-{int(time.time())}"
+        print(f"Created sandbox with ID: {self.sandbox_id}")
+        
+        # Initialize file system handler for listing files
+        self.files = self.FileSystem(self)
+    
+    def run_code(self, code: str):
+        """
+        Execute code in the sandbox.
+        
+        Args:
+            code: Code to execute
+            
+        Returns:
+            ExecutionResult object containing logs
+        """
+        print(f"Executing code in sandbox {self.sandbox_id}")
+        
+        # This is a placeholder for actual code execution
+        # In a real implementation, this would send the code to the E2B API
+        # Based on the example provided by the user
+        return ExecutionResult(logs=f"Output from executing: {code}")
+    
+    class FileSystem:
+        """
+        Handles file operations within the sandbox.
+        """
+        def __init__(self, sandbox):
+            self.sandbox = sandbox
+            
+        def list(self, path: str):
+            """
+            List files and directories at the specified path in the sandbox.
+            
+            Args:
+                path: Path to list files from
+                
+            Returns:
+                List of file objects with metadata
+            """
+            # Placeholder implementation based on the example
+            return [
+                {"name": "example.py", "type": "file", "size": 1024},
+                {"name": "data", "type": "directory"}
+            ]
+
+
+# Chat panel implementation
+class CodeInterpreterChat:
+    """
+    A simple chat interface for the code interpreter.
+    """
+    def __init__(self, template_id: str = None):
+        """
+        Initialize the chat interface.
+        
+        Args:
+            template_id: Template ID for the sandbox
+        """
+        self.template_id = template_id
+        self.sandbox = None
+        self.history = []
+        
+    def start(self):
+        """
+        Start the chat interface.
+        """
+        print("=== Code Interpreter Chat ===")
+        print("Type 'exit' to quit, 'new' to create a new sandbox, or paste your code to execute.")
+        
+        # Create initial sandbox
+        self._create_sandbox()
+        
+        while True:
+            user_input = input("\nEnter code or command: ")
+            
+            if user_input.lower() == 'exit':
+                print("Goodbye!")
+                break
+                
+            elif user_input.lower() == 'new':
+                self._create_sandbox()
+                
+            else:
+                # Execute the code
+                self._execute_code(user_input)
+    
+    def _create_sandbox(self):
+        """
+        Create a new sandbox instance.
+        """
+        print("Creating new sandbox...")
+        try:
+            self.sandbox = Sandbox(template=self.template_id, timeout=3600)
+            print(f"Sandbox created with ID: {self.sandbox.sandbox_id}")
+        except Exception as e:
+            print(f"Error creating sandbox: {str(e)}")
+            
+    def _execute_code(self, code: str):
+        """
+        Execute code in the sandbox and display the result.
+        
+        Args:
+            code: Code to execute
+        """
+        if not self.sandbox:
+            print("No active sandbox. Creating one...")
+            self._create_sandbox()
+            
+        try:
+            print("\nExecuting code...")
+            start_time = time.time()
+            result = self.sandbox.run_code(code)
+            execution_time = time.time() - start_time
+            
+            print(f"\n--- Output (executed in {execution_time:.2f}s) ---")
+            print(result)
+            print("----------------------------")
+            
+            # Add to history
+            self.history.append({"code": code, "result": str(result)})
+            
+        except Exception as e:
+            print(f"Error executing code: {str(e)}")
+
+def main():
+    """
+    Main entry point for the code interpreter chat.
+    """
+    # Use template ID from environment variable or default
+    template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "j4ye6s3uoy2ap5fhy7n5")
+    
+    chat = CodeInterpreterChat(template_id=template_id)
+    chat.start()
+
+if __name__ == "__main__":
+    main()
