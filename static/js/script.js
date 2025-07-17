@@ -22,11 +22,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
         
-        socket = new WebSocket(wsUrl);
+        addLog('Attempting to connect to WebSocket...', 'info');
         
-        socket.onopen = function(e) {
-            addLog('WebSocket connection established', 'info');
-        };
+        try {
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(e) {
+                addLog('WebSocket connection established', 'success');
+            };
         
         socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
@@ -62,15 +65,35 @@ document.addEventListener('DOMContentLoaded', function() {
             if (event.wasClean) {
                 addLog(`WebSocket connection closed cleanly, code=${event.code}, reason=${event.reason}`, 'info');
             } else {
-                addLog('WebSocket connection died', 'error');
-                // Try to reconnect after a delay
-                setTimeout(connectWebSocket, 3000);
+                // Check for authentication errors (code 1008 is policy violation)
+                if (event.code === 1008) {
+                    addLog('WebSocket authentication failed. Please log in again.', 'error');
+                    // Redirect to login page after a short delay
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 3000);
+                } else {
+                    addLog(`WebSocket connection died unexpectedly. Code: ${event.code}`, 'error');
+                    // Try to reconnect after a delay for non-auth errors
+                    setTimeout(connectWebSocket, 3000);
+                }
             }
         };
         
         socket.onerror = function(error) {
-            addLog(`WebSocket error: ${error.message}`, 'error');
+            // Handle WebSocket errors - note that the error object might not have a message property
+            addLog(`WebSocket connection error. Please check your network connection and try refreshing the page.`, 'error');
+            console.error('WebSocket error:', error);
+            
+            // Check if cookies are enabled
+            if (!navigator.cookieEnabled) {
+                addLog('Cookies are disabled in your browser. Please enable cookies for WebSocket authentication to work.', 'error');
+            }
         };
+        } catch (err) {
+            addLog(`Failed to create WebSocket connection: ${err.message}`, 'error');
+            console.error('WebSocket creation error:', err);
+        }
     }
     
     // Add log entry to the logs container
@@ -252,15 +275,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Clear logs
-    clearLogsBtn.addEventListener('click', function() {
+    // Clear logs function
+    function clearLogs() {
         logsContainer.innerHTML = '';
         // Send message to server to clear logs buffer
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({action: 'clear_logs'}));
         }
         addLog('Logs cleared', 'info');
-    });
+    }
+    
+    // Clear logs on page load
+    function clearLogsOnPageLoad() {
+        // Wait for WebSocket connection to be established
+        setTimeout(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                clearLogs();
+            } else {
+                // If WebSocket isn't ready yet, try again in a second
+                setTimeout(clearLogsOnPageLoad, 1000);
+            }
+        }, 500);
+    }
+    
+    // Clear logs button click handler
+    clearLogsBtn.addEventListener('click', clearLogs);
     
     // Example task buttons
     exampleTaskBtns.forEach(button => {
@@ -309,6 +348,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize WebSocket connection
     connectWebSocket();
     
+    // Clear logs on page load
+    clearLogsOnPageLoad();
+    
     // Initial log
     addLog('WebUI initialized. Ready to start desktop.', 'info');
     
@@ -318,14 +360,48 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalImage = document.getElementById('modalImage');
     const modalTitle = document.getElementById('imageModalLabel');
     
-    architectureImages.forEach(img => {
-        img.style.cursor = 'pointer';
-        img.title = 'Click to enlarge';
+    // Function to initialize image click handlers
+    function initializeImageModals() {
+        // Get all architecture images again (in case new ones were added dynamically)
+        const allArchitectureImages = document.querySelectorAll('.architecture-img');
         
-        img.addEventListener('click', function() {
-            modalImage.src = this.src;
-            modalTitle.textContent = this.alt || 'Enlarged Image';
-            imageModal.show();
+        allArchitectureImages.forEach(img => {
+            // Remove any existing click listeners to avoid duplicates
+            img.removeEventListener('click', handleImageClick);
+            
+            // Add styling
+            img.style.cursor = 'pointer';
+            img.title = 'Click to enlarge';
+            
+            // Add click event
+            img.addEventListener('click', handleImageClick);
         });
-    });
+    }
+    
+    // Image click handler function
+    function handleImageClick() {
+        modalImage.src = this.src;
+        
+        // Set modal title based on image context
+        if (this.alt) {
+            modalTitle.textContent = this.alt;
+        } else {
+            // Try to find a heading before the image
+            const prevHeading = this.previousElementSibling;
+            if (prevHeading && (prevHeading.tagName === 'H4' || prevHeading.tagName === 'H3')) {
+                modalTitle.textContent = prevHeading.textContent;
+            } else {
+                modalTitle.textContent = 'Enlarged Image';
+            }
+        }
+        
+        // Show the modal
+        imageModal.show();
+    }
+    
+    // Initialize all image modals
+    initializeImageModals();
+    
+    // Re-initialize on page changes or dynamic content loading
+    document.addEventListener('DOMContentLoaded', initializeImageModals);
 });

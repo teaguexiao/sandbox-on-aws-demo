@@ -72,24 +72,27 @@ class WebSocketLogger:
 
 # WebSocket endpoint for real-time communication
 async def websocket_endpoint(websocket: WebSocket, session_token: Optional[str] = Cookie(None)):
-    # Check if login is enabled
-    login_enabled = os.getenv("LOGIN_ENABLE", "true").lower() == "true"
-    
-    # If login is enabled, check authentication
-    if login_enabled and (not session_token or session_token not in sessions):
-        await websocket.close(code=1008)  # Policy violation
-        return
     await manager.connect(websocket)
     
-    # Send any buffered logs when a client connects
-    if hasattr(ws_handler, 'buffer'):
-        for log_entry in ws_handler.buffer:
-            await websocket.send_json(log_entry)
+    # Clear log buffers when a new connection is established
+    if hasattr(ws_handler, 'clear_buffer'):
+        ws_handler.clear_buffer()
+        logger.info("Logs cleared automatically on new connection")
     
-    # Send any buffered stdout/stderr logs
+    # Clear stdout/stderr buffers too
     if hasattr(stdout_capture, 'buffer'):
-        for log_entry in stdout_capture.buffer:
-            await websocket.send_json(log_entry)
+        stdout_capture.buffer = []
+    
+    if hasattr(stderr_capture, 'buffer'):
+        stderr_capture.buffer = []
+    
+    # Send initial connection message
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    await websocket.send_json({
+        "type": "info",
+        "timestamp": timestamp,
+        "data": "Connected to server. Logs cleared."
+    })
     
     try:
         while True:

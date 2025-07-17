@@ -68,12 +68,40 @@
         }
         
         #modalImage {
-            max-height: 80vh;
+            max-height: 85vh;
             object-fit: contain;
+            width: auto;
+            max-width: 100%;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease;
         }
         
         .modal-xl {
             max-width: 90%;
+        }
+        
+        .modal-content {
+            background-color: #f8f9fa;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .modal-header {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .modal-footer {
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .modal-body {
+            padding: 20px;
+            background-color: #ffffff;
         }
     </style>
 </head>
@@ -216,7 +244,7 @@
                     </a>
                     <a href="/code-interpreter" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                         Code Interpreter
-                        <span class="badge bg-secondary rounded-pill">Coming Soon</span>
+                        <span class="badge bg-primary rounded-pill">Active</span>
                     </a>
                     <a href="/computer-use" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                         Computer Use
