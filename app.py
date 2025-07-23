@@ -28,6 +28,12 @@ from sandbox_browser_use import (
     init_shared_vars
 )
 
+# Import computer use functions
+from sandbox_computer_use import (
+    start_computer_desktop, run_computer_use_task, take_computer_screenshot,
+    stop_computer_task, kill_computer_desktop, init_computer_use_vars
+)
+
 # Import E2B code interpreter
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -387,6 +393,57 @@ async def run_workflow_endpoint(query: str = Form(...), background_tasks: Backgr
     # Use the imported run_workflow function
     return await run_workflow(query, background_tasks)
 
+# Computer Use API endpoints
+@app.post("/start-computer-desktop")
+async def start_computer_desktop_endpoint():
+    """Start computer use desktop"""
+    return await start_computer_desktop()
+
+@app.post("/run-computer-use-task") 
+async def run_computer_use_task_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """Run computer use task (starts desktop if needed)"""
+    try:
+        return await run_computer_use_task(query, background_tasks=background_tasks)
+    except Exception as e:
+        logger.error(f"Error in run_computer_use_task_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/run-computer-task")
+async def run_computer_task_endpoint(query: str = Form(...), sandbox_id: str = Form(None), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """Run computer task on existing desktop"""
+    try:
+        return await run_computer_use_task(query, sandbox_id=sandbox_id, background_tasks=background_tasks)
+    except Exception as e:
+        logger.error(f"Error in run_computer_task_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/take-computer-screenshot")
+async def take_computer_screenshot_endpoint(sandbox_id: str = Form(None)):
+    """Take a screenshot of the computer desktop"""
+    try:
+        return await take_computer_screenshot(sandbox_id)
+    except Exception as e:
+        logger.error(f"Error in take_computer_screenshot_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/stop-computer-task")
+async def stop_computer_task_endpoint():
+    """Stop the currently running computer task"""
+    try:
+        return await stop_computer_task()
+    except Exception as e:
+        logger.error(f"Error in stop_computer_task_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/kill-computer-desktop")
+async def kill_computer_desktop_endpoint():
+    """Kill the computer desktop instance"""
+    try:
+        return await kill_computer_desktop()
+    except Exception as e:
+        logger.error(f"Error in kill_computer_desktop_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
 # E2B Code Interpreter API endpoints
 class CodeRequest(BaseModel):
     code: str
@@ -541,6 +598,9 @@ async def destroy_sandbox():
 if __name__ == "__main__":
     # Initialize shared variables in browser_use.py
     init_shared_vars(manager, logger, ws_handler, stdout_capture, stderr_capture, sessions)
+    
+    # Initialize shared variables in computer_use.py  
+    init_computer_use_vars(manager, logger, ws_handler, stdout_capture, stderr_capture, sessions)
     
     # Log startup message
     logger.info("Starting Sandbox Desktop WebUI")

@@ -15,10 +15,10 @@ from browser_use.controller.service import Controller
 
 def get_llm():
 	config = Config(retries={'max_attempts': 10, 'mode': 'adaptive'})
-	bedrock_client = boto3.client('bedrock-runtime', region_name='us-west-2', config=config)
+	bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-1', config=config)
 
 	return ChatBedrockConverse(
-		model_id="us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+		model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
 		temperature=0.0,
 		max_tokens=None,
 		client=bedrock_client,

@@ -11,3 +11,4 @@ pydantic
 aiohttp
 e2b
 e2b-code-interpreter
+browser-use
