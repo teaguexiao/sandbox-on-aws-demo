@@ -63,3 +63,5 @@ node_modules/
 /playwright/.cache/
 
 login_history.txt
+
+.kiro/
