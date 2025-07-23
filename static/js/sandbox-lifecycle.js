@@ -465,25 +465,47 @@ document.addEventListener('DOMContentLoaded', function() {
     async function handleStopSandbox() {
         if (sandboxState.status !== 'active') {
             addExecutionResult(
-                'sandbox.stop()',
-                'Error: No active sandbox to stop.',
+                'sandbox.pause()',
+                'Error: No active sandbox to pause.',
                 true
             );
             return;
         }
         
-        // In a real implementation, we would call an API to stop the sandbox
-        // For this demo, we'll simulate it
-        
-        // Update sandbox state
-        sandboxState.status = 'stopped';
-        updateSandboxUI();
-        
-        // Add result to execution panel
-        addExecutionResult(
-            'sandbox.stop()',
-            `Sandbox ${sandboxState.id} stopped successfully.`
-        );
+        try {
+            // Call API to pause sandbox
+            const response = await fetch('/api/e2b/pause', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Update sandbox state
+                sandboxState.status = 'stopped';
+                updateSandboxUI();
+                
+                // Add result to execution panel
+                addExecutionResult(
+                    'sandbox.pause()',
+                    result.message
+                );
+            } else {
+                // Handle error
+                addExecutionResult(
+                    'sandbox.pause()',
+                    `Error: ${result.error}`,
+                    true
+                );
+            }
+        } catch (error) {
+            // Handle error
+            addExecutionResult(
+                'sandbox.pause()',
+                `Error: ${error.message}`,
+                true
+            );
+        }
     }
     
     async function handleResumeSandbox() {
@@ -496,18 +518,40 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // In a real implementation, we would call an API to resume the sandbox
-        // For this demo, we'll simulate it
-        
-        // Update sandbox state
-        sandboxState.status = 'active';
-        updateSandboxUI();
-        
-        // Add result to execution panel
-        addExecutionResult(
-            'sandbox.resume()',
-            `Sandbox ${sandboxState.id} resumed successfully.`
-        );
+        try {
+            // Call API to resume sandbox
+            const response = await fetch('/api/e2b/resume', {
+                method: 'POST'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                // Update sandbox state
+                sandboxState.status = 'active';
+                updateSandboxUI();
+                
+                // Add result to execution panel
+                addExecutionResult(
+                    'sandbox.resume()',
+                    result.message
+                );
+            } else {
+                // Handle error
+                addExecutionResult(
+                    'sandbox.resume()',
+                    `Error: ${result.error}`,
+                    true
+                );
+            }
+        } catch (error) {
+            // Handle error
+            addExecutionResult(
+                'sandbox.resume()',
+                `Error: ${error.message}`,
+                true
+            );
+        }
     }
     
     async function handleDestroySandbox() {
@@ -522,7 +566,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             // Call API to destroy sandbox
-            const response = await fetch('/api/e2b/reset', {
+            const response = await fetch('/api/e2b/destroy', {
                 method: 'POST'
             });
             

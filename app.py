@@ -402,7 +402,7 @@ async def execute_code(code_request: CodeRequest):
     try:
         # Initialize sandbox if needed
         if e2b_sandbox is None:
-            template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "j4ye6s3uoy2ap5fhy7n5")
+            template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "nlhz8vlwyupq845jsdg9")
             e2b_sandbox = Sandbox(template=template_id, timeout=3600)
             logger.info(f"Created new E2B sandbox with ID: {e2b_sandbox.sandbox_id}")
         time.sleep(1)
@@ -429,7 +429,7 @@ async def reset_sandbox():
     
     try:
         # Create a new sandbox instance
-        template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "j4ye6s3uoy2ap5fhy7n5")
+        template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "nlhz8vlwyupq845jsdg9")
         e2b_sandbox = Sandbox(template=template_id, timeout=3600)
         logger.info(f"Reset E2B sandbox with new ID: {e2b_sandbox.sandbox_id}")
         
@@ -439,6 +439,99 @@ async def reset_sandbox():
         })
     except Exception as e:
         logger.error(f"Error resetting E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+        
+@app.post("/api/e2b/pause")
+async def pause_sandbox():
+    """Pause the E2B sandbox"""
+    global e2b_sandbox
+    
+    try:
+        if e2b_sandbox:
+            sandbox_id = e2b_sandbox.sandbox_id
+            
+            # Call the actual E2B pause method
+            e2b_sandbox.pause()
+            logger.info(f"Paused E2B sandbox with ID: {sandbox_id}")
+            
+            return JSONResponse({
+                "success": True,
+                "sandbox_id": sandbox_id,
+                "message": f"Sandbox {sandbox_id} paused successfully"
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "error": "No active sandbox to pause"
+            }, status_code=400)
+    except Exception as e:
+        logger.error(f"Error pausing E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/e2b/resume")
+async def resume_sandbox():
+    """Resume the E2B sandbox"""
+    global e2b_sandbox
+    
+    try:
+        if e2b_sandbox:
+            sandbox_id = e2b_sandbox.sandbox_id
+            
+            # Call the actual E2B resume method with sandbox_id
+            e2b_sandbox.resume(sandbox_id)
+            logger.info(f"Resumed E2B sandbox with ID: {sandbox_id}")
+            
+            return JSONResponse({
+                "success": True,
+                "sandbox_id": sandbox_id,
+                "message": f"Sandbox {sandbox_id} resumed successfully"
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "error": "No active sandbox to resume"
+            }, status_code=400)
+    except Exception as e:
+        logger.error(f"Error resuming E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/e2b/destroy")
+async def destroy_sandbox():
+    """Destroy the E2B sandbox"""
+    global e2b_sandbox
+    
+    try:
+        if e2b_sandbox:
+            # Get the sandbox ID before destroying it
+            sandbox_id = e2b_sandbox.sandbox_id
+            
+            # Destroy the sandbox
+            e2b_sandbox.kill()
+            logger.info(f"Destroyed E2B sandbox with ID: {sandbox_id}")
+            
+            # Set the sandbox to None to prevent further use
+            e2b_sandbox = None
+            
+            return JSONResponse({
+                "success": True,
+                "message": f"Sandbox {sandbox_id} destroyed successfully"
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "error": "No active sandbox to destroy"
+            }, status_code=400)
+    except Exception as e:
+        logger.error(f"Error destroying E2B sandbox: {str(e)}")
         return JSONResponse({
             "success": False,
             "error": str(e)

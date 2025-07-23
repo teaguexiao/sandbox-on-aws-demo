@@ -200,17 +200,17 @@ print(result.stdout)">Copy</button>
                                 <!-- Manage tab content (initially hidden) -->
                                 <div class="tab-content" id="manage-tab-content" style="display: none;">
                                     <div class="code-example-card">
-                                        <div class="code-example-header">Stop Sandbox</div>
+                                        <div class="code-example-header">Pause Sandbox</div>
                                         <div class="code-example-description">
                                             Pause the sandbox to save resources.
                                         </div>
                                         <div class="code-example-content">
-                                            <pre><code class="language-python"># Stop the sandbox
-sandbox.stop()</code></pre>
+                                            <pre><code class="language-python"># Pause the sandbox
+sandbox.pause()</code></pre>
                                         </div>
                                         <div class="code-example-actions">
-                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Stop the sandbox
-sandbox.stop()">Copy</button>
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Pause the sandbox
+sandbox.pause()">Copy</button>
                                             <button class="btn btn-sm btn-primary run-btn" data-action="stop_sandbox">Run</button>
                                         </div>
                                     </div>
@@ -218,15 +218,15 @@ sandbox.stop()">Copy</button>
                                     <div class="code-example-card">
                                         <div class="code-example-header">Resume Sandbox</div>
                                         <div class="code-example-description">
-                                            Resume a previously stopped sandbox.
+                                            Resume a previously paused sandbox.
                                         </div>
                                         <div class="code-example-content">
-                                            <pre><code class="language-python"># Resume the sandbox
-sandbox.resume()</code></pre>
+                                            <pre><code class="language-python"># Resume the sandbox with sandbox_id
+sandbox.resume(sandbox_id)</code></pre>
                                         </div>
                                         <div class="code-example-actions">
-                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Resume the sandbox
-sandbox.resume()">Copy</button>
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Resume the sandbox with sandbox_id
+sandbox.resume(sandbox_id)">Copy</button>
                                             <button class="btn btn-sm btn-primary run-btn" data-action="resume_sandbox">Run</button>
                                         </div>
                                     </div>
@@ -238,11 +238,11 @@ sandbox.resume()">Copy</button>
                                         </div>
                                         <div class="code-example-content">
                                             <pre><code class="language-python"># Destroy the sandbox
-sandbox.kill()</code></pre>
+sandbox.destroy()</code></pre>
                                         </div>
                                         <div class="code-example-actions">
                                             <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Destroy the sandbox
-sandbox.kill()">Copy</button>
+sandbox.destroy()">Copy</button>
                                             <button class="btn btn-sm btn-primary run-btn" data-action="destroy_sandbox">Run</button>
                                         </div>
                                     </div>
@@ -269,7 +269,7 @@ sandbox.kill()">Copy</button>
                                     </div>
                                 </div>
                                 <div class="execution-actions">
-                                    <button id="stop-btn" class="btn btn-danger" disabled>Stop</button>
+                                    <button id="stop-btn" class="btn btn-danger" disabled>Pause</button>
                                     <button id="resume-btn" class="btn btn-success" disabled>Resume</button>
                                     <button id="destroy-btn" class="btn btn-secondary" disabled>Destroy</button>
                                     <button id="clear-btn" class="btn btn-outline-secondary ms-auto">Clear Results</button>
