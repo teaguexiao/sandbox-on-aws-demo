@@ -89,11 +89,28 @@ body {
     font-family: monospace;
     color: #f8f9fa;
     width: 100%; /* Ensure full width */
+    text-align: left !important;
 }
 
-.log-entry {
+/* Ensure the logs div inside log-container is also left-aligned */
+#logs {
+    text-align: left !important;
+    width: 100%;
+    display: block;
+}
+
+#logs .log-entry {
     margin-bottom: 5px;
     word-break: break-word;
+    text-align: left !important;
+    line-height: 1.4;
+    display: block !important;
+    white-space: pre-wrap;
+    padding: 0 !important;
+    margin-left: 0 !important;
+    text-indent: 0 !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
 }
 
 .log-timestamp {
@@ -121,6 +138,26 @@ body {
     color: #4caf50;
 }
 
+/* Ensure badges in log entries are properly aligned */
+#logs .log-entry .badge {
+    margin-right: 8px !important;
+    margin-left: 0 !important;
+    vertical-align: baseline !important;
+    display: inline !important;
+}
+
+/* Ensure timestamps are consistently formatted */
+#logs .log-entry .text-muted {
+    margin-right: 8px !important;
+    margin-left: 0 !important;
+    display: inline !important;
+}
+
+/* Override any Bootstrap flexbox or alignment on log entry children */
+#logs .log-entry * {
+    text-align: left !important;
+}
+
 .control-panel .card {
     flex: 1;
     width: 100%;
@@ -131,6 +168,9 @@ body {
 .logs-section {
     border-top: 1px solid #dee2e6;
     padding-top: 15px;
+    display: block !important;
+    text-align: left !important;
+    align-items: flex-start !important;
 }
 
 /* Modern Button Styles */

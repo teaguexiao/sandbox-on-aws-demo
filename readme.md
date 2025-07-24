@@ -1,6 +1,26 @@
 # Sandbox on AWS Demo
 
-This project demonstrates how to use E2B to create a sandbox and run a Browser-use Agent using Claude 3.7/4 Sonnet inside it.
+This project demonstrates how to leverage different sandbox environment on AWS (E2B, AWS Lambda, and AWS Elastic Compute Cloud/EC2) to run AI agents safely and efficiently. By isolating Browser-use Agents powered by Claude 3.7/4 Sonnet within containerized sandboxes, this solution provides:
+
+- **Enhanced Security**: Complete isolation prevents AI agents from affecting your local system
+- **Scalable Infrastructure**: AWS-backed sandboxes that can handle multiple concurrent users
+- **Reliable Performance**: Dedicated compute resources ensure consistent agent execution
+- **Easy Management**: Streamlined sandbox lifecycle management with automated provisioning
+- **Cost Efficiency**: Pay-per-use model with automatic resource cleanup
+
+## Frontend Interface
+
+The web application provides a tabbed interface for accessing different sandbox functionalities. The navigation tabs are organized in the following order:
+
+1. **Home** - Main dashboard and overview
+2. **Sandbox Lifecycle** - Sandbox creation, management, and lifecycle operations
+3. **Browser Use** - Browser automation and web interaction capabilities
+4. **Code Interpreter** - Code execution and interpretation features
+5. **Computer Use** - Desktop automation and computer interaction
+6. **AI Search** - AI-powered search functionality *(Coming Soon)*
+7. **AI PPT** - AI-powered presentation generation *(Coming Soon)*
+
+Each tab provides access to specific sandbox capabilities while maintaining a consistent navigation experience across all pages.
 
 ## Pre-requisites
 
@@ -60,12 +80,6 @@ This project demonstrates how to use E2B to create a sandbox and run a Browser-u
 ## Running the Application
 
 ```bash
-c
+python app.py
 ```
 
-This will:
-1. Create an E2B desktop sandbox
-2. Assume the Bedrock-Role using STS
-3. Set up the environment in the sandbox
-4. Run the Browser-use Agent using Claude 3.7/4 Sonnet inside the sandbox
-5. The Browser-use Agent will perform a search task and answer the user's question

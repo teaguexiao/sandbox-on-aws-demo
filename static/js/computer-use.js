@@ -536,11 +536,7 @@ class ComputerUseInterface {
                 badge = '<span class="badge bg-secondary">INFO</span>';
         }
         
-        logEntry.innerHTML = `
-            <small class="text-muted">[${timestamp}]</small> 
-            ${badge} 
-            <span class="${textClass}">${this.escapeHtml(message)}</span>
-        `;
+        logEntry.innerHTML = `<small class="text-muted">[${timestamp}]</small> ${badge} <span class="${textClass}">${this.escapeHtml(message)}</span>`;
         
         logsDiv.appendChild(logEntry);
         logsDiv.scrollTop = logsDiv.scrollHeight;

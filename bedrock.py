@@ -18,7 +18,8 @@ def get_llm():
 	bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-1', config=config)
 
 	return ChatBedrockConverse(
-		model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
+		#model_id="anthropic.claude-3-5-sonnet-20240620-v1:0",
+		model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
 		temperature=0.0,
 		max_tokens=None,
 		client=bedrock_client,
@@ -41,13 +42,18 @@ args = parser.parse_args()
 
 llm = get_llm()
 
+initial_actions = [
+	{'go_to_url': {'url': 'https://www.bing.com', 'new_tab': True}},
+]
+
 agent = Agent(
 	task=args.query,
 	llm=llm,
 	controller=Controller(),
 	use_vision=True,
 	message_context=extend_system_message,
-	validate_output=True
+	validate_output=False,
+	initial_actions=initial_actions,
 )
 
 async def main():

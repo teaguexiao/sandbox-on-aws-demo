@@ -22,6 +22,20 @@
             vertical-align: middle;
             font-weight: normal;
         }
+
+        /* Force left alignment for all log content */
+        #log-container, #logs, .log-entry {
+            text-align: left !important;
+            justify-content: flex-start !important;
+            align-items: flex-start !important;
+        }
+
+        /* Ensure badges and timestamps don't get centered */
+        #logs .log-entry .badge,
+        #logs .log-entry .text-muted {
+            margin-left: 0 !important;
+            text-align: left !important;
+        }
     </style>
 </head>
 <body>
@@ -40,13 +54,13 @@
                         <a class="nav-link" href="/">Home</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="/sandbox-lifecycle">Sandbox Lifecycle</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="/browser-use">Browser Use</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/code-interpreter">Code Interpreter</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/sandbox-lifecycle">Sandbox Lifecycle</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="/computer-use">Computer Use</a>
@@ -131,13 +145,13 @@
                                 <div id="reasoning-content" class="border rounded p-3 bg-light mb-3" style="max-height: 200px; overflow-y: auto;"></div>
                             </div>
                             
-                            <div class="logs-section mt-4">
+                            <div class="logs-section mt-4" style="text-align: left !important;">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h4>Computer Use Logs</h4>
                                     <button id="clear-logs" class="btn btn-sm btn-outline-secondary">Clear</button>
                                 </div>
-                                <div id="log-container">
-                                    <div id="logs"></div>
+                                <div id="log-container" style="text-align: left !important;">
+                                    <div id="logs" style="text-align: left !important;"></div>
                                 </div>
                             </div>
                         </form>
