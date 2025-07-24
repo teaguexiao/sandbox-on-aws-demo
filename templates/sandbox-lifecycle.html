@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sandbox Lifecycle - Sandbox on AWS Demo UI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/sandbox-lifecycle.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <style>
+        .nav-tabs .nav-link {
+            color: #495057;
+            font-weight: 500;
+        }
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            font-weight: 600;
+        }
+        .coming-soon-badge {
+            font-size: 0.65rem;
+            margin-left: 5px;
+            padding: 0.25em 0.5em;
+            vertical-align: middle;
+            font-weight: normal;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row header">
+            <div class="col-12">
+                <h1>Sandbox on AWS Demo UI</h1>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <ul class="nav nav-tabs" id="sandboxTabs">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/browser-use">Browser Use</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/code-interpreter">Code Interpreter</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/sandbox-lifecycle">Sandbox Lifecycle</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/computer-use">Computer Use</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ai-search">AI Search <span class="badge bg-warning text-dark coming-soon-badge">Coming Soon</span></a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ai-ppt">AI PPT <span class="badge bg-warning text-dark coming-soon-badge">Coming Soon</span></a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="row main-content">
+            <div class="col-12 mt-4">
+                <div class="container">
+                    <h2 class="text-center mb-4">Sandbox Lifecycle Demo</h2>
+                    
+                    <!-- Split-view layout -->
+                    <div class="split-view-container">
+                        <!-- Left panel - SDK Examples -->
+                        <div class="sdk-examples-panel">
+                            <div class="sdk-examples-header">
+                                <h4 class="m-0">SDK Examples</h4>
+                            </div>
+                            <div class="sdk-examples-tabs">
+                                <div class="sdk-tab active" data-tab="create">Create</div>
+                                <div class="sdk-tab" data-tab="use">Use</div>
+                                <div class="sdk-tab" data-tab="manage">Manage</div>
+                            </div>
+                            <div class="sdk-examples-content">
+                                <!-- Create tab content -->
+                                <div class="tab-content" id="create-tab-content">
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">Create a Sandbox</div>
+                                        <div class="code-example-description">
+                                            Initialize a new E2B sandbox instance with default settings.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python">from e2b import Sandbox
+
+# Create a new sandbox instance
+sandbox = Sandbox()</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="from e2b import Sandbox
+
+# Create a new sandbox instance
+sandbox = Sandbox()">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="create_sandbox">Run</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">Create a Sandbox with Custom Template</div>
+                                        <div class="code-example-description">
+                                            Create a sandbox with a specific template ID and timeout.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python">from e2b import Sandbox
+
+# Create a sandbox with custom template and timeout
+sandbox = Sandbox(
+    template="base-python",
+    timeout=3600  # 1 hour timeout
+)</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="from e2b import Sandbox
+
+# Create a sandbox with custom template and timeout
+sandbox = Sandbox(
+    template='base-python',
+    timeout=3600  # 1 hour timeout
+)">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="create_custom_sandbox">Run</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Use tab content (initially hidden) -->
+                                <div class="tab-content" id="use-tab-content" style="display: none;">
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">Run Python Code</div>
+                                        <div class="code-example-description">
+                                            Execute Python code in the sandbox and get the result.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python"># Run a simple Python code snippet
+result = sandbox.process.code_run("""
+print("Hello World!")
+""")</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Run a simple Python code snippet
+result = sandbox.process.code_run('''
+print(\"Hello World!\")
+''')">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="run_code">Run</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">Execute Shell Command</div>
+                                        <div class="code-example-description">
+                                            Run a shell command in the sandbox environment.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python"># Execute a shell command
+result = sandbox.process.exec("echo 'Hello from shell!'")
+print(result.stdout)</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Execute a shell command
+result = sandbox.process.exec(\"echo 'Hello from shell!'\")
+print(result.stdout)">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="exec_command">Run</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">File Operations</div>
+                                        <div class="code-example-description">
+                                            Create, write, and read files in the sandbox.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python"># Write to a file
+file_content = "Hello, World!"
+sandbox.fs.upload_file("/home/user/data.txt", file_content)
+
+# Read the file
+result = sandbox.process.exec("cat /home/user/data.txt")
+print(result.stdout)</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Write to a file
+file_content = \"Hello, World!\"
+sandbox.fs.upload_file(\"/home/user/data.txt\", file_content)
+
+# Read the file
+result = sandbox.process.exec(\"cat /home/user/data.txt\")
+print(result.stdout)">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="file_operations">Run</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Manage tab content (initially hidden) -->
+                                <div class="tab-content" id="manage-tab-content" style="display: none;">
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">Pause Sandbox</div>
+                                        <div class="code-example-description">
+                                            Pause the sandbox to save resources.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python"># Pause the sandbox
+sandbox.pause()</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Pause the sandbox
+sandbox.pause()">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="stop_sandbox">Run</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">Resume Sandbox</div>
+                                        <div class="code-example-description">
+                                            Resume a previously paused sandbox.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python"># Resume the sandbox with sandbox_id
+sandbox.resume(sandbox_id)</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Resume the sandbox with sandbox_id
+sandbox.resume(sandbox_id)">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="resume_sandbox">Run</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="code-example-card">
+                                        <div class="code-example-header">Destroy Sandbox</div>
+                                        <div class="code-example-description">
+                                            Permanently destroy the sandbox and free all resources.
+                                        </div>
+                                        <div class="code-example-content">
+                                            <pre><code class="language-python"># Destroy the sandbox
+sandbox.destroy()</code></pre>
+                                        </div>
+                                        <div class="code-example-actions">
+                                            <button class="btn btn-sm btn-outline-secondary copy-btn" data-code="# Destroy the sandbox
+sandbox.destroy()">Copy</button>
+                                            <button class="btn btn-sm btn-primary run-btn" data-action="destroy_sandbox">Run</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right panel - Execution Area -->
+                        <div class="execution-panel">
+                            <div class="execution-header">
+                                <div class="sandbox-status">
+                                    <div class="status-indicator" id="status-indicator"></div>
+                                    <span id="sandbox-status-text">No active sandbox</span>
+                                </div>
+                                <div id="sandbox-info">
+                                    <span id="sandbox-id"></span>
+                                    <span id="sandbox-uptime"></span>
+                                </div>
+                            </div>
+                            <div class="execution-content">
+                                <div class="execution-results" id="execution-results">
+                                    <div class="text-center text-muted py-5">
+                                        <p>Select an example from the left panel and click "Run" to see the results here.</p>
+                                    </div>
+                                </div>
+                                <div class="execution-actions">
+                                    <button id="stop-btn" class="btn btn-danger" disabled>Pause</button>
+                                    <button id="resume-btn" class="btn btn-success" disabled>Resume</button>
+                                    <button id="destroy-btn" class="btn btn-secondary" disabled>Destroy</button>
+                                    <button id="clear-btn" class="btn btn-outline-secondary ms-auto">Clear Results</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/python.min.js"></script>
+    <script src="/static/js/script.js"></script>
+    <script src="/static/js/sandbox-lifecycle.js"></script>
+    
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageModalLabel">Image Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" src="" class="img-fluid" alt="Enlarged Image">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

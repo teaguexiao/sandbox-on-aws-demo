@@ -23,13 +23,15 @@ from sandbox_desktop import open_desktop_stream, setup_environment, create_sts
 
 # Import functions from browser_use.py
 from sandbox_browser_use import (
-    websocket_endpoint, user_websocket_endpoint,
-    start_desktop, start_desktop_for_user,
-    setup_env, setup_env_for_user, setup_env_in_background,
-    run_task, run_task_for_user, run_task_in_background,
-    kill_desktop, kill_desktop_for_user,
-    run_workflow, run_workflow_for_user,
+    websocket_endpoint, start_desktop, setup_env, setup_env_in_background,
+    run_task, run_task_in_background, kill_desktop, run_workflow,
     init_shared_vars
+)
+
+# Import computer use functions
+from sandbox_computer_use import (
+    start_computer_desktop, run_computer_use_task, take_computer_screenshot,
+    stop_computer_task, kill_computer_desktop, init_computer_use_vars
 )
 
 # Import E2B code interpreter
@@ -228,26 +230,17 @@ class WebSocketLogger:
         # Use print instead of logger to avoid duplicate logs
         print(f"[{self.log_type}] {data}")
 
-# Import the new user session management
-from user_session_manager import UserSessionManager, get_current_user_session
-
-# Import the new user connection management
-from user_connection_manager import UserConnectionManager, user_connection_manager
-
-# Initialize the user session manager
-user_session_manager = UserSessionManager()
-
-# Legacy session management for backward compatibility
+# Session management
 sessions = {}
 
 def get_current_user(session_token: str = Cookie(None)):
     # Check if login is enabled
     login_enabled = os.getenv("LOGIN_ENABLE", "true").lower() == "true"
-
+    
     # If login is disabled, return a default user
     if not login_enabled:
         return {"username": "default_user", "aws_login": "", "customer_name": ""}
-
+    
     # Otherwise, check for valid session
     if session_token and session_token in sessions:
         return sessions[session_token]
@@ -290,17 +283,13 @@ async def post_login(request: Request, response: Response, username: str = Form(
     
     # Validate credentials
     if username == expected_username and password == expected_password:
-        # Create new user session with unique ID
-        user_session = user_session_manager.create_session(username, aws_login, customer_name)
-
-        # Also maintain legacy session for backward compatibility
-        session_token = user_session.session_id
+        # Create session
+        session_token = secrets.token_hex(16)
         sessions[session_token] = {"username": username, "aws_login": aws_login, "customer_name": customer_name}
-
+        
         # Set cookie and redirect
         response = RedirectResponse(url="/", status_code=303)
         response.set_cookie(key="session_token", value=session_token, httponly=True)
-        logger.info(f"User {username} logged in with session {session_token}")
         return response
     else:
         return templates.TemplateResponse(
@@ -310,15 +299,7 @@ async def post_login(request: Request, response: Response, username: str = Form(
 
 # Logout route
 @app.get("/logout")
-async def logout(response: Response, session_token: str = Cookie(None)):
-    # Clean up user session
-    if session_token:
-        user_session_manager.remove_session(session_token)
-        # Also remove from legacy sessions
-        if session_token in sessions:
-            del sessions[session_token]
-        logger.info(f"User session {session_token} logged out and cleaned up")
-
+async def logout(response: Response):
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie(key="session_token")
     return response
@@ -329,19 +310,10 @@ async def get_index(request: Request, user: dict = Depends(get_current_user)):
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 @app.get("/browser-use", response_class=HTMLResponse)
-async def get_browser_use(request: Request, user: dict = Depends(get_current_user), session_token: str = Cookie(None)):
+async def get_browser_use(request: Request, user: dict = Depends(get_current_user)):
     if not user:
         return RedirectResponse(url="/login", status_code=303)
-
-    # Get user session and stream URL
-    user_session = user_session_manager.get_session(session_token) if session_token else None
-    user_stream_url = user_session.stream_url if user_session else None
-
-    return templates.TemplateResponse("browser-use.html", {
-        "request": request,
-        "user": user,
-        "stream_url": user_stream_url
-    })
+    return templates.TemplateResponse("browser-use.html", {"request": request, "user": user, "stream_url": stream_url})
 
 @app.get("/computer-use", response_class=HTMLResponse)
 async def get_computer_use(request: Request, user: dict = Depends(get_current_user)):
@@ -360,6 +332,12 @@ async def get_code_interpreter_e2b(request: Request, user: dict = Depends(get_cu
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("code-interpreter-e2b.html", {"request": request, "user": user})
+
+@app.get("/sandbox-lifecycle", response_class=HTMLResponse)
+async def get_sandbox_lifecycle(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("sandbox-lifecycle.html", {"request": request, "user": user})
 
 @app.get("/code-interpreter-ec2", response_class=HTMLResponse)
 async def get_code_interpreter_ec2(request: Request, user: dict = Depends(get_current_user)):
@@ -382,88 +360,89 @@ async def get_ai_ppt(request: Request, user: dict = Depends(get_current_user)):
 # WebSocket endpoint
 @app.websocket("/ws")
 async def ws_endpoint(websocket: WebSocket, session_token: Optional[str] = Cookie(None)):
-    # Get user session
-    if not session_token:
-        await websocket.close(code=1008, reason="No session token")
-        return
-
-    user_session = user_session_manager.get_session(session_token)
-    if not user_session:
-        await websocket.close(code=1008, reason="Invalid session")
-        return
-
-    # Use the new user-aware websocket endpoint
-    await user_websocket_endpoint(websocket, user_session)
+    # Use the imported websocket_endpoint function
+    await websocket_endpoint(websocket, session_token)
 
 # Start desktop stream
 @app.post("/start-desktop")
-async def start_desktop_endpoint(user: dict = Depends(get_current_user), session_token: str = Cookie(None)):
-    if not user:
-        return {"status": "error", "message": "Authentication required"}
-
-    # Get user session
-    user_session = user_session_manager.get_session(session_token)
-    if not user_session:
-        return {"status": "error", "message": "Invalid session"}
-
-    # Use the new user-aware start_desktop function
-    return await start_desktop_for_user(user_session)
+async def start_desktop_endpoint():
+    # Use the imported start_desktop function
+    return await start_desktop()
 
 # Setup environment
 @app.post("/setup-environment")
-async def setup_env_endpoint(background_tasks: BackgroundTasks = None, user: dict = Depends(get_current_user), session_token: str = Cookie(None)):
-    if not user:
-        return {"status": "error", "message": "Authentication required"}
-
-    # Get user session
-    user_session = user_session_manager.get_session(session_token)
-    if not user_session:
-        return {"status": "error", "message": "Invalid session"}
-
-    # Use the new user-aware setup_env function
-    return await setup_env_for_user(user_session, background_tasks)
+async def setup_env_endpoint(background_tasks: BackgroundTasks = None):
+    # Use the imported setup_env function
+    return await setup_env(background_tasks)
 
 # Run task
 @app.post("/run-task")
-async def run_task_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = None, user: dict = Depends(get_current_user), session_token: str = Cookie(None)):
-    if not user:
-        return {"status": "error", "message": "Authentication required"}
-
-    # Get user session
-    user_session = user_session_manager.get_session(session_token)
-    if not user_session:
-        return {"status": "error", "message": "Invalid session"}
-
-    # Use the new user-aware run_task function
-    return await run_task_for_user(user_session, query, background_tasks)
+async def run_task_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = None):
+    # Use the imported run_task function
+    return await run_task(query, background_tasks)
 
 # Kill desktop
 @app.post("/kill-desktop")
-async def kill_desktop_endpoint(user: dict = Depends(get_current_user), session_token: str = Cookie(None)):
-    if not user:
-        return {"status": "error", "message": "Authentication required"}
-
-    # Get user session
-    user_session = user_session_manager.get_session(session_token)
-    if not user_session:
-        return {"status": "error", "message": "Invalid session"}
-
-    # Use the new user-aware kill_desktop function
-    return await kill_desktop_for_user(user_session)
+async def kill_desktop_endpoint():
+    # Use the imported kill_desktop function
+    return await kill_desktop()
 
 # Run the entire workflow
 @app.post("/run-workflow")
-async def run_workflow_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks(), user: dict = Depends(get_current_user), session_token: str = Cookie(None)):
-    if not user:
-        return {"status": "error", "message": "Authentication required"}
+async def run_workflow_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    # Use the imported run_workflow function
+    return await run_workflow(query, background_tasks)
 
-    # Get user session
-    user_session = user_session_manager.get_session(session_token)
-    if not user_session:
-        return {"status": "error", "message": "Invalid session"}
+# Computer Use API endpoints
+@app.post("/start-computer-desktop")
+async def start_computer_desktop_endpoint():
+    """Start computer use desktop"""
+    return await start_computer_desktop()
 
-    # Use the new user-aware run_workflow function
-    return await run_workflow_for_user(user_session, query, background_tasks)
+@app.post("/run-computer-use-task") 
+async def run_computer_use_task_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """Run computer use task (starts desktop if needed)"""
+    try:
+        return await run_computer_use_task(query, background_tasks=background_tasks)
+    except Exception as e:
+        logger.error(f"Error in run_computer_use_task_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/run-computer-task")
+async def run_computer_task_endpoint(query: str = Form(...), sandbox_id: str = Form(None), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """Run computer task on existing desktop"""
+    try:
+        return await run_computer_use_task(query, sandbox_id=sandbox_id, background_tasks=background_tasks)
+    except Exception as e:
+        logger.error(f"Error in run_computer_task_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/take-computer-screenshot")
+async def take_computer_screenshot_endpoint(sandbox_id: str = Form(None)):
+    """Take a screenshot of the computer desktop"""
+    try:
+        return await take_computer_screenshot(sandbox_id)
+    except Exception as e:
+        logger.error(f"Error in take_computer_screenshot_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/stop-computer-task")
+async def stop_computer_task_endpoint():
+    """Stop the currently running computer task"""
+    try:
+        return await stop_computer_task()
+    except Exception as e:
+        logger.error(f"Error in stop_computer_task_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/kill-computer-desktop")
+async def kill_computer_desktop_endpoint():
+    """Kill the computer desktop instance"""
+    try:
+        return await kill_computer_desktop()
+    except Exception as e:
+        logger.error(f"Error in kill_computer_desktop_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
 
 # E2B Code Interpreter API endpoints
 class CodeRequest(BaseModel):
@@ -480,7 +459,7 @@ async def execute_code(code_request: CodeRequest):
     try:
         # Initialize sandbox if needed
         if e2b_sandbox is None:
-            template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "j4ye6s3uoy2ap5fhy7n5")
+            template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "nlhz8vlwyupq845jsdg9")
             e2b_sandbox = Sandbox(template=template_id, timeout=3600)
             logger.info(f"Created new E2B sandbox with ID: {e2b_sandbox.sandbox_id}")
         time.sleep(1)
@@ -507,7 +486,7 @@ async def reset_sandbox():
     
     try:
         # Create a new sandbox instance
-        template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "j4ye6s3uoy2ap5fhy7n5")
+        template_id = os.environ.get("CODE_INTERPRETER_TEMPLATE_ID", "nlhz8vlwyupq845jsdg9")
         e2b_sandbox = Sandbox(template=template_id, timeout=3600)
         logger.info(f"Reset E2B sandbox with new ID: {e2b_sandbox.sandbox_id}")
         
@@ -521,11 +500,107 @@ async def reset_sandbox():
             "success": False,
             "error": str(e)
         }, status_code=500)
+        
+@app.post("/api/e2b/pause")
+async def pause_sandbox():
+    """Pause the E2B sandbox"""
+    global e2b_sandbox
+    
+    try:
+        if e2b_sandbox:
+            sandbox_id = e2b_sandbox.sandbox_id
+            
+            # Call the actual E2B pause method
+            e2b_sandbox.pause()
+            logger.info(f"Paused E2B sandbox with ID: {sandbox_id}")
+            
+            return JSONResponse({
+                "success": True,
+                "sandbox_id": sandbox_id,
+                "message": f"Sandbox {sandbox_id} paused successfully"
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "error": "No active sandbox to pause"
+            }, status_code=400)
+    except Exception as e:
+        logger.error(f"Error pausing E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/e2b/resume")
+async def resume_sandbox():
+    """Resume the E2B sandbox"""
+    global e2b_sandbox
+    
+    try:
+        if e2b_sandbox:
+            sandbox_id = e2b_sandbox.sandbox_id
+            
+            # Call the actual E2B resume method with sandbox_id
+            e2b_sandbox.resume(sandbox_id)
+            logger.info(f"Resumed E2B sandbox with ID: {sandbox_id}")
+            
+            return JSONResponse({
+                "success": True,
+                "sandbox_id": sandbox_id,
+                "message": f"Sandbox {sandbox_id} resumed successfully"
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "error": "No active sandbox to resume"
+            }, status_code=400)
+    except Exception as e:
+        logger.error(f"Error resuming E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
+
+@app.post("/api/e2b/destroy")
+async def destroy_sandbox():
+    """Destroy the E2B sandbox"""
+    global e2b_sandbox
+    
+    try:
+        if e2b_sandbox:
+            # Get the sandbox ID before destroying it
+            sandbox_id = e2b_sandbox.sandbox_id
+            
+            # Destroy the sandbox
+            e2b_sandbox.kill()
+            logger.info(f"Destroyed E2B sandbox with ID: {sandbox_id}")
+            
+            # Set the sandbox to None to prevent further use
+            e2b_sandbox = None
+            
+            return JSONResponse({
+                "success": True,
+                "message": f"Sandbox {sandbox_id} destroyed successfully"
+            })
+        else:
+            return JSONResponse({
+                "success": False,
+                "error": "No active sandbox to destroy"
+            }, status_code=400)
+    except Exception as e:
+        logger.error(f"Error destroying E2B sandbox: {str(e)}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
 
 # Initialize shared variables in browser_use.py
 if __name__ == "__main__":
     # Initialize shared variables in browser_use.py
-    init_shared_vars(manager, logger, ws_handler, stdout_capture, stderr_capture, sessions, user_connection_manager)
+    init_shared_vars(manager, logger, ws_handler, stdout_capture, stderr_capture, sessions)
+    
+    # Initialize shared variables in computer_use.py  
+    init_computer_use_vars(manager, logger, ws_handler, stdout_capture, stderr_capture, sessions)
     
     # Log startup message
     logger.info("Starting Sandbox Desktop WebUI")

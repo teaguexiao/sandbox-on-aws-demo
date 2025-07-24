@@ -9,10 +9,6 @@ import json
 from datetime import datetime
 from e2b_desktop import Sandbox
 
-# Import user management modules
-from user_session_manager import UserSession
-from user_connection_manager import UserConnectionManager, UserWebSocketLogger
-
 # Import functions from sandbox_desktop.py
 #from sandbox_desktop import open_desktop_stream, setup_environment, create_sts
 from sandbox_desktop import open_desktop_stream, setup_environment, create_sts
@@ -29,9 +25,6 @@ ws_handler = None
 stdout_capture = None
 stderr_capture = None
 sessions = {}
-
-# User connection manager will be initialized from app.py
-user_connection_manager = None
 
 # WebSocket logger class for handling command output
 class WebSocketLogger:
@@ -119,109 +112,39 @@ async def websocket_endpoint(websocket: WebSocket, session_token: Optional[str] 
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
-
-# New user-aware WebSocket endpoint for isolated connections
-async def user_websocket_endpoint(websocket: WebSocket, user_session: UserSession):
-    """WebSocket endpoint that provides user-isolated communication"""
-    session_id = user_session.session_id
-
-    # Connect using the user connection manager
-    await user_connection_manager.connect(websocket, session_id)
-
-    # Add this connection to the user session
-    user_session.websocket_connections.append(websocket)
-    user_session.update_activity()
-
-    # Send initial connection message
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    await user_connection_manager.send_json_to_user(session_id, {
-        "type": "info",
-        "timestamp": timestamp,
-        "data": f"Connected to server. Session: {session_id}"
-    })
-
-    try:
-        while True:
-            # Wait for messages from the client
-            data = await websocket.receive_text()
-            user_session.update_activity()
-
-            try:
-                message = json.loads(data)
-                if message.get('action') == 'clear_logs':
-                    # Clear only this user's log buffer
-                    user_session.log_buffer = []
-                    await user_connection_manager.send_json_to_user(session_id, {
-                        "type": "info",
-                        "timestamp": datetime.now().strftime("%H:%M:%S"),
-                        "data": "Logs cleared for your session"
-                    })
-                    logger.info(f"Logs cleared for session {session_id}")
-            except json.JSONDecodeError:
-                logger.error(f"Invalid JSON received from session {session_id}: {data}")
-
-    except WebSocketDisconnect:
-        # Remove from user connection manager
-        user_connection_manager.disconnect(websocket)
-
-        # Remove from user session
-        if websocket in user_session.websocket_connections:
-            user_session.websocket_connections.remove(websocket)
-
-        logger.info(f"WebSocket disconnected for session {session_id}")
-
-# Start desktop instance for a specific user session
-async def start_desktop_for_user(user_session: UserSession):
-    """Start desktop instance for a specific user session"""
-    session_id = user_session.session_id
-
-    # Send message to this user only
-    await user_connection_manager.send_json_to_user(session_id, {
-        "type": "info",
-        "data": "Starting desktop stream..."
-    })
+# Start desktop instance
+async def start_desktop():
+    global desktop, stream_url
+    await manager.send_json({"type": "info", "data": "Starting desktop stream..."})
     
     try:
-        # Check if user already has a desktop instance
-        if user_session.sandbox_instance is not None:
-            logger.info(f"Desktop instance already exists for session {session_id}, killing it first")
-            try:
-                user_session.sandbox_instance.kill()
-                logger.info(f"Previous desktop instance killed successfully for session {session_id}")
-            except Exception as e:
-                logger.error(f"Error killing previous desktop for session {session_id}: {e}")
-            user_session.sandbox_instance = None
-            user_session.stream_url = None
-
-        logger.info(f"Creating new desktop instance for session {session_id}")
+        logger.info("Calling open_desktop_stream function...")
         # Run in a separate thread to avoid blocking
         desktop = None
         try:
-            # Get environment variables
+            # Log sandbox creation attempt
+            #logger.info("Creating sandbox via open_desktop_stream...")
+            #desktop = open_desktop_stream(open_browser=False)
             api_key = os.environ.get("API_KEY")
             template = os.environ.get("TEMPLATE")
             domain = os.environ.get("DOMAIN")
             timeout = int(os.environ.get("TIMEOUT", 1200))
-
-            logger.info(f"Using template: {template}, domain: {domain}, timeout: {timeout} for session {session_id}")
+            
+            logger.info(f"Using template: {template}, domain: {domain}, timeout: {timeout}")
             logger.info(f"API_KEY present: {bool(api_key)}")
-
+            
             # Create sandbox with detailed error handling
-            logger.info(f"Initializing Sandbox object for session {session_id}...")
+            logger.info("Initializing Sandbox object...")
             desktop = Sandbox(
                     api_key=api_key,
                     template=template,
                     domain=domain,
                     timeout=timeout,
                     metadata={
-                        "purpose": "sandbox-on-aws",
-                        "session_id": session_id
+                        "purpose": "sandbox-on-aws"
                     }
                 )
-            logger.info(f"Sandbox object initialized for session {session_id}, sandbox_id: {desktop.sandbox_id}")
-
-            # Store in user session
-            user_session.sandbox_instance = desktop
+            logger.info(f"Sandbox object initialized, sandbox_id: {desktop.sandbox_id}")
 
             # Log sandbox object details
             for attr in ['sandbox_id', 'status', 'ready']:
@@ -241,272 +164,173 @@ async def start_desktop_for_user(user_session: UserSession):
                 logger.error("Sandbox has no 'stream' attribute!")
                 raise Exception("Sandbox missing stream attribute")
         except Exception as e:
-            logger.error(f"Error creating sandbox for session {session_id}: {e}", exc_info=True)
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "error",
-                "data": f"Error creating sandbox: {str(e)}"
-            })
+            logger.error(f"Error creating sandbox: {e}", exc_info=True)
+            await manager.send_json({"type": "error", "data": f"Error creating sandbox: {str(e)}"})  
             return {"status": "error", "message": f"Error creating sandbox: {str(e)}"}
-
+        
         # Get auth key and stream URL
         try:
-            logger.info(f"Starting stream for session {session_id}...")
+            logger.info("Starting stream...")
             desktop.stream.start(require_auth=True)
 
-            logger.info(f"Getting stream auth key for session {session_id}...")
+            logger.info("Getting stream auth key...")
             auth_key = desktop.stream.get_auth_key()
-            logger.info(f"Auth key retrieved successfully for session {session_id}")
-
-            logger.info(f"Getting stream URL for session {session_id}...")
+            logger.info("Auth key retrieved successfully")
+            
+            logger.info("Getting stream URL...")
             stream_url = desktop.stream.get_url(auth_key=auth_key)
-            logger.info(f"Stream URL generated for session {session_id}: {stream_url}")
-
-            # Store in user session
-            user_session.stream_url = stream_url
-
+            logger.info(f"Stream URL generated: {stream_url}")
         except Exception as e:
-            logger.error(f"Error getting stream URL for session {session_id}: {e}", exc_info=True)
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "error",
-                "data": f"Error getting stream URL: {str(e)}"
-            })
+            logger.error(f"Error getting stream URL: {e}", exc_info=True)
+            await manager.send_json({"type": "error", "data": f"Error getting stream URL: {str(e)}"})  
             return {"status": "error", "message": f"Error getting stream URL: {str(e)}"}
-
+        
         # Get timeout from environment variables or use default
         timeout = int(os.environ.get("TIMEOUT", 1200))
-        logger.info(f"Using timeout value: {timeout} for session {session_id}")
-
+        logger.info(f"Using timeout value: {timeout}")
+        
         # Send success message to client
-        logger.info(f"Sending desktop_started event to client for session {session_id}")
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "desktop_started",
+        logger.info("Sending desktop_started event to client")
+        await manager.send_json({
+            "type": "desktop_started", 
             "data": {
                 "sandbox_id": desktop.sandbox_id,
                 "stream_url": stream_url,
                 "timeout": timeout
             }
         })
-        logger.info(f"Desktop started event sent successfully for session {session_id}")
+        logger.info("Desktop started event sent successfully")
     except Exception as e:
-        logger.error(f"Unexpected error in start_desktop for session {session_id}: {e}", exc_info=True)
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "error",
-            "data": f"Unexpected error: {str(e)}"
-        })
+        logger.error(f"Unexpected error in start_desktop: {e}", exc_info=True)
+        await manager.send_json({"type": "error", "data": f"Unexpected error: {str(e)}"})  
         return {"status": "error", "message": f"Unexpected error: {str(e)}"}
-
+    
     return {"status": "success", "stream_url": stream_url}
 
-
-# Legacy start_desktop function for backward compatibility
-async def start_desktop():
-    """Legacy function - should not be used in multi-user environment"""
-    logger.warning("Legacy start_desktop function called - this should be replaced with start_desktop_for_user")
-    # For now, return an error to prevent usage
-    return {"status": "error", "message": "Multi-user mode requires session-specific desktop creation"}
-
-# Setup environment for a specific user session
-async def setup_env_for_user(user_session: UserSession, background_tasks: BackgroundTasks = None):
-    """Setup environment for a specific user session"""
-    session_id = user_session.session_id
-
-    if not user_session.sandbox_instance:
-        return {"status": "error", "message": "No desktop instance available for this session"}
-
-    await user_connection_manager.send_json_to_user(session_id, {
-        "type": "info",
-        "data": "Setting up environment in background..."
-    })
-
+# Setup environment
+async def setup_env(background_tasks: BackgroundTasks = None):
+    global desktop
+    
+    if not desktop:
+        return {"status": "error", "message": "No desktop instance available"}
+    
+    await manager.send_json({"type": "info", "data": "Setting up environment in background..."})
+    
     # Add to background tasks
     if background_tasks:
-        background_tasks.add_task(setup_env_in_background_for_user, user_session)
+        background_tasks.add_task(setup_env_in_background)
     else:
         # If not called with background_tasks (e.g. direct API call)
         # create a new background task manually
-        asyncio.create_task(setup_env_in_background_for_user(user_session))
-
+        asyncio.create_task(setup_env_in_background())
+    
     return {"status": "success", "message": "Environment setup started in background"}
 
-
-# Legacy setup_env function for backward compatibility
-async def setup_env(background_tasks: BackgroundTasks = None):
-    """Legacy function - should not be used in multi-user environment"""
-    logger.warning("Legacy setup_env function called - this should be replaced with setup_env_for_user")
-    return {"status": "error", "message": "Multi-user mode requires session-specific environment setup"}
-
-# Setup environment in background for a specific user session
-async def setup_env_in_background_for_user(user_session: UserSession):
-    """Run the environment setup in background for a specific user session"""
-    session_id = user_session.session_id
-    desktop = user_session.sandbox_instance
-
-    if not desktop:
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "error",
-            "data": "No desktop instance available for this session"
-        })
-        return
-
+# Setup environment in background
+async def setup_env_in_background():
+    """Run the environment setup in background so it can be cancelled"""
+    global desktop, current_command
+    
     try:
         # Step 1: Copy files to sandbox
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "info",
-            "data": "Copying files to sandbox..."
-        })
-
+        await manager.send_json({"type": "info", "data": "Copying files to sandbox..."})
+        
         try:
             with open('bedrock.py', 'r') as f1:
                 _code = f1.read()
                 desktop.files.write('/tmp/bedrock.py', _code)
-                await user_connection_manager.send_json_to_user(session_id, {
-                    "type": "info",
-                    "data": "Copied bedrock.py to /tmp/bedrock.py"
-                })
-
+                await manager.send_json({"type": "info", "data": "Copied bedrock.py to /tmp/bedrock.py"})
+                
         except Exception as e:
-            logger.error(f"Error copying files for session {session_id}: {e}")
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "error",
-                "data": f"Error copying files: {str(e)}"
-            })
+            logger.error(f"Error copying files: {e}")
+            await manager.send_json({"type": "error", "data": f"Error copying files: {str(e)}"})
             return
-
+        
         # Step 2: Create STS credentials
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "info",
-            "data": "Creating AWS credentials..."
-        })
+        await manager.send_json({"type": "info", "data": "Creating AWS credentials..."})
         credentials = create_sts()
         if not credentials:
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "error",
-                "data": "Failed to create AWS credentials"
-            })
+            await manager.send_json({"type": "error", "data": "Failed to create AWS credentials"})
             return
-
+            
         creds_content = f"""[default]
     aws_access_key_id={credentials['AccessKeyId']}
     aws_secret_access_key={credentials['SecretAccessKey']}
     aws_session_token={credentials['SessionToken']}
     """
         desktop.files.write('~/.aws/credentials', creds_content)
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "info",
-            "data": "AWS credentials created successfully"
-        })
+        await manager.send_json({"type": "info", "data": "AWS credentials created successfully"})
+        
+        await manager.send_json({"type": "info", "data": "Installing Playwright browser..."})
 
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "info",
-            "data": "Installing Playwright browser..."
-        })
-
-        # Use user-specific loggers
-        stdout_logger = UserWebSocketLogger(user_connection_manager, session_id, "stdout")
-        stderr_logger = UserWebSocketLogger(user_connection_manager, session_id, "stderr")
+        stdout_logger = WebSocketLogger(manager, "stdout")
+        stderr_logger = WebSocketLogger(manager, "stderr")
 
         cmd = 'playwright install chromium --with-deps --no-shell'
-        logger.info(f"Running command in background for session {session_id}: {cmd}")
+        logger.info(f"Running command in background: {cmd}")
         current_command = desktop.commands.run(
             cmd,
             on_stdout=stdout_logger,
             on_stderr=stderr_logger,
             background=True
         )
-
-        # Store the command in user session
-        user_session.current_command = current_command
-        logger.info(f"Command started for session {session_id} with id: {getattr(current_command, 'id', 'unknown')}")
-
+        logger.info(f"Command started with id: {getattr(current_command, 'id', 'unknown')}")
+        
         # Wait for command to complete
         result = await asyncio.to_thread(current_command.wait)
         # CommandResult object doesn't have a get method, access exit_code directly
         if hasattr(result, 'exit_code') and result.exit_code != 0:
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "error",
-                "data": "Failed to install Playwright browser"
-            })
+            await manager.send_json({"type": "error", "data": "Failed to install Playwright browser"})
             return
 
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "info",
-            "data": "Environment setup completed successfully"
-        })
-
+        await manager.send_json({"type": "info", "data": "Environment setup completed successfully"})
+        
 
     except Exception as e:
-        logger.error(f"Error setting up environment for session {session_id}: {e}")
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "error",
-            "data": f"Error setting up environment: {str(e)}"
-        })
+        logger.error(f"Error setting up environment: {e}")
+        await manager.send_json({"type": "error", "data": f"Error setting up environment: {str(e)}"})
     finally:
-        user_session.current_command = None
+        current_command = None
 
-
-# Legacy setup_env_in_background function for backward compatibility
-async def setup_env_in_background():
-    """Legacy function - should not be used in multi-user environment"""
-    logger.warning("Legacy setup_env_in_background function called - this should be replaced with setup_env_in_background_for_user")
-    # For now, return an error to prevent usage
-    return {"status": "error", "message": "Multi-user mode requires session-specific environment setup"}
-
-# Run task for a specific user session
-async def run_task_for_user(user_session: UserSession, query: str, background_tasks: BackgroundTasks = None):
-    """Run task for a specific user session"""
-    session_id = user_session.session_id
-
-    if not user_session.sandbox_instance:
-        return {"status": "error", "message": "No desktop instance available for this session"}
-
-    await user_connection_manager.send_json_to_user(session_id, {
-        "type": "info",
-        "data": f"Running task: {query}"
-    })
-
+# Run task
+async def run_task(query: str = Form(...), background_tasks: BackgroundTasks = None):
+    global desktop, current_command
+    
+    if not desktop:
+        return {"status": "error", "message": "No desktop instance available"}
+    
+    await manager.send_json({"type": "info", "data": f"Running task: {query}"})
+    
     # Add to background tasks
     if background_tasks:
-        background_tasks.add_task(run_task_in_background_for_user, user_session, query)
+        background_tasks.add_task(run_task_in_background, query)
     else:
         # If not called with background_tasks (e.g. direct API call)
         # create a new background task manually
-        asyncio.create_task(run_task_in_background_for_user(user_session, query))
-
+        asyncio.create_task(run_task_in_background(query))
+    
     return {"status": "success", "message": "Task started in background"}
 
-
-# Legacy run_task function for backward compatibility
-async def run_task(query: str = Form(...), background_tasks: BackgroundTasks = None):
-    """Legacy function - should not be used in multi-user environment"""
-    logger.warning("Legacy run_task function called - this should be replaced with run_task_for_user")
-    return {"status": "error", "message": "Multi-user mode requires session-specific task execution"}
-
-# Run task in background for a specific user session
-async def run_task_in_background_for_user(user_session: UserSession, query: str):
-    """Run the task in background for a specific user session"""
-    session_id = user_session.session_id
-    desktop = user_session.sandbox_instance
-
-    if not desktop:
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "error",
-            "data": "No desktop instance available for this session"
-        })
-        return
-
+# Run task in background
+async def run_task_in_background(query: str):
+    """Run the task in background so it can be cancelled"""
+    global desktop, current_command
+    
     try:
         # Run bedrock.py with the query
-        stdout_logger = UserWebSocketLogger(user_connection_manager, session_id, "stdout")
-        stderr_logger = UserWebSocketLogger(user_connection_manager, session_id, "stderr")
-
+        stdout_logger = WebSocketLogger(manager, "stdout")
+        stderr_logger = WebSocketLogger(manager, "stderr")
+        
         # Clear any existing command reference
-        user_session.current_command = None
-
+        current_command = None
+        
         # Start the command in BACKGROUND mode with the proper E2B API
         # This returns immediately but keeps the process running
-        logger.info(f"Starting task in background mode for session {session_id}")
+        logger.info("Starting task in background mode")
+        #cmd = f"env"
         cmd = f"python3.11 /tmp/bedrock.py --query '{query}'"
-        logger.info(f"Running command in background for session {session_id}: {cmd}")
+        #cmd = f"uv run python3 /tmp/bedrock.py --query '{query}'"
+        logger.info(f"Running command in background: {cmd}")
         current_command = desktop.commands.run(
             cmd,
             on_stdout=stdout_logger,
@@ -514,167 +338,112 @@ async def run_task_in_background_for_user(user_session: UserSession, query: str)
             background=True,  # This is key to allow immediate kill
             timeout=0  # Disable timeout to prevent 'context deadline exceeded' errors
         )
-
-        # Store in user session
-        user_session.current_command = current_command
         # Log more detailed information about the command object
-        logger.info(f"Command started for session {session_id} with id: {getattr(current_command, 'id', 'unknown')}")
-        logger.info(f"Command object for session {session_id}: {current_command}")
+        logger.info(f"Command started with id: {getattr(current_command, 'id', 'unknown')}")
+        logger.info(f"Command object: {current_command}")
         # Log available attributes
         for attr in ['id', 'sandbox_id', 'process_id', 'exit_code', 'status']:
             if hasattr(current_command, attr):
-                logger.info(f"Command {attr} for session {session_id}: {getattr(current_command, attr)}")
-
+                logger.info(f"Command {attr}: {getattr(current_command, attr)}")
+        
         # Wait for the command to complete naturally or be killed externally
         result = await asyncio.to_thread(current_command.wait)
-
+        
         # Check the exit code to see if it completed successfully or was killed
         exit_code = getattr(result, 'exit_code', None)
         if exit_code == 0:
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "task_completed",
-                "data": "Task completed successfully"
-            })
+            await manager.send_json({"type": "task_completed", "data": "Task completed successfully"})
         elif exit_code is None or exit_code < 0:
             # Likely killed
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "info",
-                "data": "Task was terminated"
-            })
+            await manager.send_json({"type": "info", "data": "Task was terminated"})
         else:
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "error",
-                "data": f"Task failed with exit code: {exit_code}"
-            })
-
+            await manager.send_json({"type": "error", "data": f"Task failed with exit code: {exit_code}"})
+            
     except Exception as e:
-        logger.error(f"Error running task for session {session_id}: {e}")
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "error",
-            "data": f"Error running task: {str(e)}"
-        })
+        logger.error(f"Error running task: {e}")
+        await manager.send_json({"type": "error", "data": f"Error running task: {str(e)}"})
     finally:
-        user_session.current_command = None
+        current_command = None
 
-
-# Legacy run_task_in_background function for backward compatibility
-async def run_task_in_background(query: str):
-    """Legacy function - should not be used in multi-user environment"""
-    logger.warning("Legacy run_task_in_background function called - this should be replaced with run_task_in_background_for_user")
-    # For now, return an error to prevent usage
-    return {"status": "error", "message": "Multi-user mode requires session-specific task execution"}
-
-# Kill desktop for a specific user session
-async def kill_desktop_for_user(user_session: UserSession):
-    """Kill desktop instance for a specific user session"""
-    session_id = user_session.session_id
-
-    if not user_session.sandbox_instance:
-        return {"status": "error", "message": "No desktop instance available for this session"}
-
-    await user_connection_manager.send_json_to_user(session_id, {
-        "type": "info",
-        "data": "Killing desktop instance and workflow processes..."
-    })
-
+# Kill desktop
+async def kill_desktop():
+    global desktop, stream_url, current_command
+    
+    if not desktop:
+        return {"status": "error", "message": "No desktop instance available"}
+    
+    await manager.send_json({"type": "info", "data": "Killing desktop instance and workflow processes..."})
+    
     try:
         # First, kill any running command with the proper API
-        if user_session.current_command:
-            logger.info(f"Killing current command for session {session_id}: {user_session.current_command}")
+        if current_command:
+            logger.info(f"Killing current command: {current_command}")
             for attr in ['id', 'sandbox_id', 'process_id', 'exit_code', 'status']:
-                if hasattr(user_session.current_command, attr):
-                    logger.info(f"Command {attr} before kill for session {session_id}: {getattr(user_session.current_command, attr)}")
-
+                if hasattr(current_command, attr):
+                    logger.info(f"Command {attr} before kill: {getattr(current_command, attr)}")
+            
             try:
                 # Use the E2B command kill method
-                user_session.current_command.kill()
-                logger.info(f"Command kill() method called successfully for session {session_id}")
-
+                current_command.kill()
+                logger.info("Command kill() method called successfully")
+                
                 # Log command attributes after killing
                 for attr in ['id', 'sandbox_id', 'process_id', 'exit_code', 'status']:
-                    if hasattr(user_session.current_command, attr):
-                        logger.info(f"Command {attr} after kill for session {session_id}: {getattr(user_session.current_command, attr)}")
+                    if hasattr(current_command, attr):
+                        logger.info(f"Command {attr} after kill: {getattr(current_command, attr)}")
             except Exception as e:
-                logger.error(f"Error killing command for session {session_id}: {e}")
-
+                logger.error(f"Error killing command: {e}")
+        
         # Force kill any Python processes for good measure
         try:
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "info",
-                "data": "Killing all Python processes"
-            })
+            await manager.send_json({"type": "info", "data": "Killing all Python processes"})
             cmd = "pkill -9 python"
-            logger.info(f"Running command in background for session {session_id}: {cmd}")
-            result = user_session.sandbox_instance.commands.run(cmd, timeout=2)
-            logger.info(f"Command started for session {session_id} with id: {getattr(result, 'id', 'unknown')}")
+            logger.info(f"Running command in background: {cmd}")
+            result = desktop.commands.run(cmd, timeout=2)
+            logger.info(f"Command started with id: {getattr(result, 'id', 'unknown')}")
             for attr in ['id', 'sandbox_id', 'process_id', 'exit_code', 'status']:
                 if hasattr(result, attr):
-                    logger.info(f"Command {attr} for session {session_id}: {getattr(result, attr)}")
-            await user_connection_manager.send_json_to_user(session_id, {
-                "type": "info",
-                "data": "Killed all Python processes"
-            })
+                    logger.info(f"Command {attr}: {getattr(result, attr)}")
+            await manager.send_json({"type": "info", "data": "Killed all Python processes"})
         except Exception as process_error:
             # Log but continue with sandbox kill
-            logger.warning(f"Error killing processes for session {session_id}: {process_error}")
-
+            logger.warning(f"Error killing processes: {process_error}")
+        
         # Now kill the desktop sandbox
-        user_session.sandbox_instance.kill()
-        user_session.sandbox_instance = None
-        user_session.stream_url = None
-        user_session.current_command = None
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "desktop_killed",
-            "data": "Desktop instance killed"
-        })
+        desktop.kill()
+        desktop = None
+        stream_url = None
+        current_command = None
+        await manager.send_json({"type": "desktop_killed", "data": "Desktop instance killed"})
         return {"status": "success"}
     except Exception as e:
-        logger.error(f"Error killing desktop for session {session_id}: {e}")
-        await user_connection_manager.send_json_to_user(session_id, {
-            "type": "error",
-            "data": f"Error killing desktop: {str(e)}"
-        })
+        logger.error(f"Error killing desktop: {e}")
+        await manager.send_json({"type": "error", "data": f"Error killing desktop: {str(e)}"})
         return {"status": "error", "message": str(e)}
 
-
-# Legacy kill_desktop function for backward compatibility
-async def kill_desktop():
-    """Legacy function - should not be used in multi-user environment"""
-    logger.warning("Legacy kill_desktop function called - this should be replaced with kill_desktop_for_user")
-    return {"status": "error", "message": "Multi-user mode requires session-specific desktop management"}
-
-# Run the entire workflow for a specific user session
-async def run_workflow_for_user(user_session: UserSession, query: str, background_tasks: BackgroundTasks = None):
-    """Run the entire workflow for a specific user session"""
+# Run the entire workflow
+async def run_workflow(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
     # Start desktop
-    start_result = await start_desktop_for_user(user_session)
+    start_result = await start_desktop()
     if start_result["status"] == "error":
         return start_result
-
+    
     # Setup environment in background
-    setup_result = await setup_env_for_user(user_session, background_tasks)
+    setup_result = await setup_env(background_tasks=background_tasks)
     if setup_result["status"] == "error":
         return setup_result
-
+    
     # Run task in background
-    await run_task_for_user(user_session, query, background_tasks)
-
+    await run_task(query, background_tasks=background_tasks)
+    
     return {"status": "success", "message": "Workflow started"}
 
-
-# Legacy run_workflow function for backward compatibility
-async def run_workflow(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
-    """Legacy function - should not be used in multi-user environment"""
-    logger.warning("Legacy run_workflow function called - this should be replaced with run_workflow_for_user")
-    return {"status": "error", "message": "Multi-user mode requires session-specific workflow execution"}
-
 # Function to initialize shared variables from app.py
-def init_shared_vars(app_manager, app_logger, app_ws_handler, app_stdout_capture, app_stderr_capture, app_sessions, app_user_connection_manager):
-    global manager, logger, ws_handler, stdout_capture, stderr_capture, sessions, user_connection_manager
+def init_shared_vars(app_manager, app_logger, app_ws_handler, app_stdout_capture, app_stderr_capture, app_sessions):
+    global manager, logger, ws_handler, stdout_capture, stderr_capture, sessions
     manager = app_manager
     logger = app_logger
     ws_handler = app_ws_handler
     stdout_capture = app_stdout_capture
     stderr_capture = app_stderr_capture
     sessions = app_sessions
-    user_connection_manager = app_user_connection_manager
