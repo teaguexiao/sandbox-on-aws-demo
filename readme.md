@@ -60,7 +60,7 @@ This project demonstrates how to use E2B to create a sandbox and run a Browser-u
 ## Running the Application
 
 ```bash
-python app.py
+c
 ```
 
 This will:

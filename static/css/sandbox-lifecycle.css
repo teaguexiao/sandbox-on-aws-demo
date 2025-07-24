@@ -1,0 +1,246 @@
+/* Sandbox Lifecycle Split-View Layout */
+
+.split-view-container {
+    display: flex;
+    height: calc(100vh - 150px);
+    min-height: 600px;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Left panel - SDK Examples */
+.sdk-examples-panel {
+    width: 50%;
+    background-color: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sdk-examples-header {
+    padding: 15px;
+    background-color: #f1f3f5;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.sdk-examples-tabs {
+    display: flex;
+    background-color: #e9ecef;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.sdk-tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #495057;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.sdk-tab.active {
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+    background-color: #f8f9fa;
+}
+
+.sdk-examples-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+/* Right panel - Execution Area */
+.execution-panel {
+    width: 50%;
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.execution-header {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sandbox-status {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.sandbox-status .status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.status-indicator.creating {
+    background-color: #ffc107;
+}
+
+.status-indicator.active {
+    background-color: #28a745;
+}
+
+.status-indicator.stopped {
+    background-color: #dc3545;
+}
+
+.status-indicator.destroyed {
+    background-color: #6c757d;
+}
+
+.execution-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.execution-results {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: monospace;
+}
+
+.execution-result {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.execution-result:last-child {
+    border-bottom: none;
+}
+
+.execution-command {
+    font-weight: bold;
+    color: #0d6efd;
+    margin-bottom: 5px;
+}
+
+.execution-output {
+    white-space: pre-wrap;
+    color: #212529;
+}
+
+.execution-error {
+    color: #dc3545;
+}
+
+.execution-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+/* Code Example Card */
+.code-example-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.code-example-card:hover {
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.code-example-header {
+    padding: 12px 15px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 500;
+}
+
+.code-example-description {
+    padding: 10px 15px;
+    color: #6c757d;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.code-example-content {
+    padding: 15px;
+    background-color: #f8f9fa;
+    position: relative;
+}
+
+.code-example-content pre {
+    margin: 0;
+    padding: 10px;
+    background-color: #212529;
+    color: #f8f9fa;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.code-example-actions {
+    padding: 10px 15px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background-color: #fff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+    .split-view-container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .sdk-examples-panel, .execution-panel {
+        width: 100%;
+        height: 500px;
+    }
+    
+    .sdk-examples-panel {
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+}
+
+/* Code highlighting */
+.hljs {
+    background: #212529;
+    color: #f8f9fa;
+    padding: 1em;
+    border-radius: 4px;
+}
+
+/* Loading spinner */
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: #0d6efd;
+    border-radius: 50%;
+    animation: spinner 0.8s linear infinite;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spinner {
+    to {transform: rotate(360deg);}
+}
