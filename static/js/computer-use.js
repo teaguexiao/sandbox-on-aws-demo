@@ -48,10 +48,7 @@ class ComputerUseInterface {
             this.clearLogs();
         });
 
-        // Screenshot click handler for coordinates
-        document.getElementById('current-screenshot').addEventListener('click', (e) => {
-            this.handleScreenshotClick(e);
-        });
+        // Screenshot click handler removed since screenshot display is removed
     }
 
     connectWebSocket() {
@@ -160,13 +157,9 @@ class ComputerUseInterface {
     }
 
     handleScreenshot(data) {
-        const screenshotContainer = document.getElementById('screenshot-container');
-        const screenshotImg = document.getElementById('current-screenshot');
-        
-        screenshotImg.src = `data:image/png;base64,${data}`;
-        screenshotContainer.style.display = 'block';
-        
-        this.addLog('Screenshot updated', 'info');
+        // Screenshot functionality removed to prevent layout issues
+        // The desktop stream iframe provides the visual feedback
+        this.addLog('Screenshot taken (displayed in desktop stream)', 'info');
     }
 
     handleReasoning(data) {
@@ -245,8 +238,7 @@ class ComputerUseInterface {
         streamFrame.style.display = 'none';
         streamPlaceholder.style.display = 'block';
         
-        // Hide screenshot
-        document.getElementById('screenshot-container').style.display = 'none';
+        // Hide reasoning and action displays
         document.getElementById('reasoning-section').style.display = 'none';
         document.getElementById('current-action').style.display = 'none';
         
