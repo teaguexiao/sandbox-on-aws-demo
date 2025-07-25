@@ -546,7 +546,7 @@ Please help the user effectively by observing the current state of the computer 
             if callback:
                 await callback({"type": "info", "data": "Analyzing screenshot and planning actions..."})
             
-            max_iterations = 20  # Restored proper limit for computer use tasks
+            max_iterations = 50  # Restored proper limit for computer use tasks
             iteration = 0
             
             while iteration < max_iterations:
