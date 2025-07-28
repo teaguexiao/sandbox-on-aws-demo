@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import uvicorn
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 import json
 import logging
 from datetime import datetime
@@ -117,13 +117,38 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
         self.message_queue: List[Dict] = []
+        # Session-aware connection management
+        self.session_connections: Dict[str, Set[WebSocket]] = {}
+        self.connection_sessions: Dict[WebSocket, str] = {}
     
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, session_id: str = None):
         await websocket.accept()
         self.active_connections.append(websocket)
+        
+        # If session_id provided, associate connection with session
+        if session_id:
+            self.associate_session(websocket, session_id)
+    
+    def associate_session(self, websocket: WebSocket, session_id: str):
+        """Associate an existing WebSocket connection with a session"""
+        if session_id not in self.session_connections:
+            self.session_connections[session_id] = set()
+        self.session_connections[session_id].add(websocket)
+        self.connection_sessions[websocket] = session_id
     
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+        
+        # Remove from session connections
+        if websocket in self.connection_sessions:
+            session_id = self.connection_sessions[websocket]
+            if session_id in self.session_connections:
+                self.session_connections[session_id].discard(websocket)
+                # Clean up empty session connection sets
+                if not self.session_connections[session_id]:
+                    del self.session_connections[session_id]
+            del self.connection_sessions[websocket]
     
     async def send_message(self, message: str):
         for connection in self.active_connections:
@@ -147,6 +172,42 @@ class ConnectionManager:
                 await connection.send_json(data)
             except Exception as e:
                 print(f"Error sending JSON: {e}", file=sys.stderr)
+    
+    async def send_to_session(self, session_id: str, data: Dict):
+        """Send message only to connections in a specific session"""
+        if session_id not in self.session_connections:
+            # No connections for this session, queue the message
+            print(f"No connections found for session {session_id}. Available sessions: {list(self.session_connections.keys())}", file=sys.stderr)
+            if not hasattr(self, 'session_message_queues'):
+                self.session_message_queues = {}
+            if session_id not in self.session_message_queues:
+                self.session_message_queues[session_id] = []
+            
+            self.session_message_queues[session_id].append(data)
+            # Keep queue size reasonable
+            if len(self.session_message_queues[session_id]) > 1000:
+                self.session_message_queues[session_id] = self.session_message_queues[session_id][-1000:]
+            return
+        
+        # Send to all connections in this session
+        connections_to_remove = []
+        connection_count = len(self.session_connections[session_id])
+        print(f"Sending message to session {session_id} with {connection_count} connections", file=sys.stderr)
+        
+        for connection in self.session_connections[session_id]:
+            try:
+                await connection.send_json(data)
+            except Exception as e:
+                print(f"Error sending JSON to session {session_id}: {e}", file=sys.stderr)
+                connections_to_remove.append(connection)
+        
+        # Clean up failed connections
+        for connection in connections_to_remove:
+            self.disconnect(connection)
+    
+    def get_session_id(self, websocket: WebSocket) -> Optional[str]:
+        """Get the session ID for a WebSocket connection"""
+        return self.connection_sessions.get(websocket)
 
 manager = ConnectionManager()
 
@@ -395,53 +456,90 @@ async def run_workflow_endpoint(query: str = Form(...), background_tasks: Backgr
 
 # Computer Use API endpoints
 @app.post("/start-computer-desktop")
-async def start_computer_desktop_endpoint():
+async def start_computer_desktop_endpoint(session_id: str = Form(None)):
     """Start computer use desktop"""
-    return await start_computer_desktop()
+    return await start_computer_desktop(session_id=session_id)
 
 @app.post("/run-computer-use-task") 
-async def run_computer_use_task_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+async def run_computer_use_task_endpoint(query: str = Form(...), session_id: str = Form(None), background_tasks: BackgroundTasks = BackgroundTasks()):
     """Run computer use task (starts desktop if needed)"""
     try:
-        return await run_computer_use_task(query, background_tasks=background_tasks)
+        return await run_computer_use_task(query, session_id=session_id, background_tasks=background_tasks)
     except Exception as e:
         logger.error(f"Error in run_computer_use_task_endpoint: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 @app.post("/run-computer-task")
-async def run_computer_task_endpoint(query: str = Form(...), sandbox_id: str = Form(None), background_tasks: BackgroundTasks = BackgroundTasks()):
+async def run_computer_task_endpoint(query: str = Form(...), session_id: str = Form(None), sandbox_id: str = Form(None), background_tasks: BackgroundTasks = BackgroundTasks()):
     """Run computer task on existing desktop"""
     try:
-        return await run_computer_use_task(query, sandbox_id=sandbox_id, background_tasks=background_tasks)
+        return await run_computer_use_task(query, session_id=session_id, sandbox_id=sandbox_id, background_tasks=background_tasks)
     except Exception as e:
         logger.error(f"Error in run_computer_task_endpoint: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 @app.post("/take-computer-screenshot")
-async def take_computer_screenshot_endpoint(sandbox_id: str = Form(None)):
+async def take_computer_screenshot_endpoint(session_id: str = Form(None), sandbox_id: str = Form(None)):
     """Take a screenshot of the computer desktop"""
     try:
-        return await take_computer_screenshot(sandbox_id)
+        return await take_computer_screenshot(session_id=session_id, sandbox_id=sandbox_id)
     except Exception as e:
         logger.error(f"Error in take_computer_screenshot_endpoint: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 @app.post("/stop-computer-task")
-async def stop_computer_task_endpoint():
+async def stop_computer_task_endpoint(session_id: str = Form(None)):
     """Stop the currently running computer task"""
     try:
-        return await stop_computer_task()
+        return await stop_computer_task(session_id=session_id)
     except Exception as e:
         logger.error(f"Error in stop_computer_task_endpoint: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 @app.post("/kill-computer-desktop")
-async def kill_computer_desktop_endpoint():
+async def kill_computer_desktop_endpoint(session_id: str = Form(None)):
     """Kill the computer desktop instance"""
     try:
-        return await kill_computer_desktop()
+        return await kill_computer_desktop(session_id=session_id)
     except Exception as e:
         logger.error(f"Error in kill_computer_desktop_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/sessions/status")
+async def get_sessions_status():
+    """Get status of all active computer-use sessions"""
+    try:
+        from sandbox_computer_use import session_manager
+        
+        sessions_info = []
+        for session_id, session in session_manager.sessions.items():
+            session_info = {
+                "session_id": session_id,
+                "created_at": session.created_at.isoformat(),
+                "last_activity": session.last_activity.isoformat(),
+                "has_desktop": session.desktop is not None,
+                "has_agent": session.agent is not None,
+                "task_running": session.current_task is not None and not session.current_task.done(),
+                "sandbox_id": getattr(session.desktop, 'sandbox_id', None) if session.desktop else None,
+                "connections": len(session.connections)
+            }
+            sessions_info.append(session_info)
+        
+        # Also include WebSocket connection info
+        websocket_info = {
+            "total_connections": len(manager.active_connections),
+            "session_connections": {k: len(v) for k, v in manager.session_connections.items()},
+            "connection_sessions": len(manager.connection_sessions)
+        }
+        
+        return {
+            "status": "success",
+            "total_sessions": len(sessions_info),
+            "sessions": sessions_info,
+            "websocket_info": websocket_info
+        }
+    except Exception as e:
+        logger.error(f"Error getting sessions status: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 # E2B Code Interpreter API endpoints

@@ -72,6 +72,7 @@ class WebSocketLogger:
 
 # WebSocket endpoint for real-time communication
 async def websocket_endpoint(websocket: WebSocket, session_token: Optional[str] = Cookie(None)):
+    session_id = None
     await manager.connect(websocket)
     
     # Clear log buffers when a new connection is established
@@ -100,7 +101,27 @@ async def websocket_endpoint(websocket: WebSocket, session_token: Optional[str] 
             data = await websocket.receive_text()
             try:
                 message = json.loads(data)
-                if message.get('action') == 'clear_logs':
+                if message.get('action') == 'identify_session':
+                    # Handle session identification
+                    session_id = message.get('session_id')
+                    if session_id:
+                        # Associate connection with session ID
+                        manager.associate_session(websocket, session_id)
+                        logger.info(f"WebSocket connected to session: {session_id}")
+                        # Send confirmation back to client
+                        await websocket.send_json({
+                            "type": "info",
+                            "timestamp": datetime.now().strftime("%H:%M:%S"),
+                            "data": f"Session identified: {session_id}"
+                        })
+                        
+                        # Also create the session in session_manager if it doesn't exist
+                        from sandbox_computer_use import session_manager, ComputerUseSession
+                        if not session_manager.get_session(session_id):
+                            session = ComputerUseSession(session_id)
+                            session_manager.sessions[session_id] = session
+                            logger.info(f"Created computer use session: {session_id}")
+                elif message.get('action') == 'clear_logs':
                     # Clear the log buffer
                     ws_handler.clear_buffer()
                     # Clear stdout/stderr buffers too
