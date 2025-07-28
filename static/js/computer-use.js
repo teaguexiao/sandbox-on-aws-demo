@@ -13,23 +13,10 @@ class ComputerUseInterface {
         
         this.initializeEventListeners();
         this.connectWebSocket();
-        this.displaySessionInfo();
     }
 
     generateSessionId() {
         return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    }
-
-    displaySessionInfo() {
-        // Add session ID to the UI for debugging/monitoring
-        const sessionInfo = document.createElement('div');
-        sessionInfo.className = 'alert alert-info mt-2';
-        sessionInfo.innerHTML = `<small><strong>Session ID:</strong> ${this.sessionId}</small>`;
-        
-        const controlsCard = document.querySelector('.card-body');
-        if (controlsCard) {
-            controlsCard.insertBefore(sessionInfo, controlsCard.firstChild);
-        }
     }
 
     initializeEventListeners() {
@@ -586,7 +573,10 @@ class ComputerUseInterface {
         logEntry.innerHTML = `<small class="text-muted">[${timestamp}]</small> ${badge} <span class="${textClass}">${this.escapeHtml(message)}</span>`;
         
         logsDiv.appendChild(logEntry);
-        logsDiv.scrollTop = logsDiv.scrollHeight;
+        
+        // Scroll the log container to the bottom
+        const logContainer = document.getElementById('log-container');
+        logContainer.scrollTop = logContainer.scrollHeight;
     }
 
     clearLogs() {
