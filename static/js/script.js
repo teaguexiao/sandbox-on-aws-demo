@@ -25,20 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'browser_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
     
-    // Display session info
-    function displaySessionInfo() {
-        const sessionInfo = document.createElement('div');
-        sessionInfo.className = 'alert alert-info mt-2';
-        sessionInfo.innerHTML = `<small><strong>Browser Session ID:</strong> ${sessionId}</small>`;
-        
-        const controlsCard = document.querySelector('.card-body');
-        if (controlsCard) {
-            controlsCard.insertBefore(sessionInfo, controlsCard.firstChild);
-        }
-    }
-    
-    // Initialize session info display
-    displaySessionInfo();
+    // Session info display removed per user request
     
     // Connect to WebSocket
     function connectWebSocket() {
@@ -156,10 +143,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleDesktopStarted(data) {
         // Update UI
         
-        // Show sandbox ID and session info
+        // Show sandbox ID (session info removed per user request)
         if (data.sandbox_id) {
-            const sessionInfo = data.session_id ? ` (Session: ${data.session_id})` : '';
-            sandboxIdSpan.textContent = `Sandbox ID: ${data.sandbox_id}${sessionInfo}`;
+            sandboxIdSpan.textContent = `ID: ${data.sandbox_id}`;
         }
         
         // Load stream URL in iframe
