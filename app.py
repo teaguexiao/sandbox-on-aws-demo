@@ -426,33 +426,33 @@ async def ws_endpoint(websocket: WebSocket, session_token: Optional[str] = Cooki
 
 # Start desktop stream
 @app.post("/start-desktop")
-async def start_desktop_endpoint():
+async def start_desktop_endpoint(session_id: str = Form(None)):
     # Use the imported start_desktop function
-    return await start_desktop()
+    return await start_desktop(session_id=session_id)
 
 # Setup environment
 @app.post("/setup-environment")
-async def setup_env_endpoint(background_tasks: BackgroundTasks = None):
+async def setup_env_endpoint(session_id: str = Form(None), background_tasks: BackgroundTasks = None):
     # Use the imported setup_env function
-    return await setup_env(background_tasks)
+    return await setup_env(session_id=session_id, background_tasks=background_tasks)
 
 # Run task
 @app.post("/run-task")
-async def run_task_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = None):
+async def run_task_endpoint(query: str = Form(...), session_id: str = Form(None), background_tasks: BackgroundTasks = None):
     # Use the imported run_task function
-    return await run_task(query, background_tasks)
+    return await run_task(query, session_id=session_id, background_tasks=background_tasks)
 
 # Kill desktop
 @app.post("/kill-desktop")
-async def kill_desktop_endpoint():
+async def kill_desktop_endpoint(session_id: str = Form(None)):
     # Use the imported kill_desktop function
-    return await kill_desktop()
+    return await kill_desktop(session_id=session_id)
 
 # Run the entire workflow
 @app.post("/run-workflow")
-async def run_workflow_endpoint(query: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+async def run_workflow_endpoint(query: str = Form(...), session_id: str = Form(None), background_tasks: BackgroundTasks = BackgroundTasks()):
     # Use the imported run_workflow function
-    return await run_workflow(query, background_tasks)
+    return await run_workflow(query, session_id=session_id, background_tasks=background_tasks)
 
 # Computer Use API endpoints
 @app.post("/start-computer-desktop")
@@ -507,14 +507,17 @@ async def kill_computer_desktop_endpoint(session_id: str = Form(None)):
 
 @app.get("/api/sessions/status")
 async def get_sessions_status():
-    """Get status of all active computer-use sessions"""
+    """Get status of all active sessions (computer-use and browser-use)"""
     try:
         from sandbox_computer_use import session_manager
+        from sandbox_browser_use import browser_session_manager
         
-        sessions_info = []
+        # Computer-use sessions
+        computer_sessions = []
         for session_id, session in session_manager.sessions.items():
             session_info = {
                 "session_id": session_id,
+                "type": "computer-use",
                 "created_at": session.created_at.isoformat(),
                 "last_activity": session.last_activity.isoformat(),
                 "has_desktop": session.desktop is not None,
@@ -523,7 +526,25 @@ async def get_sessions_status():
                 "sandbox_id": getattr(session.desktop, 'sandbox_id', None) if session.desktop else None,
                 "connections": len(session.connections)
             }
-            sessions_info.append(session_info)
+            computer_sessions.append(session_info)
+        
+        # Browser-use sessions
+        browser_sessions = []
+        for session_id, session in browser_session_manager.sessions.items():
+            session_info = {
+                "session_id": session_id,
+                "type": "browser-use",
+                "created_at": session.created_at.isoformat(),
+                "last_activity": session.last_activity.isoformat(),
+                "has_desktop": session.desktop is not None,
+                "has_stream_url": session.stream_url is not None,
+                "command_running": session.current_command is not None,
+                "sandbox_id": getattr(session.desktop, 'sandbox_id', None) if session.desktop else None,
+                "connections": len(session.connections)
+            }
+            browser_sessions.append(session_info)
+        
+        all_sessions = computer_sessions + browser_sessions
         
         # Also include WebSocket connection info
         websocket_info = {
@@ -534,8 +555,10 @@ async def get_sessions_status():
         
         return {
             "status": "success",
-            "total_sessions": len(sessions_info),
-            "sessions": sessions_info,
+            "total_sessions": len(all_sessions),
+            "computer_use_sessions": len(computer_sessions),
+            "browser_use_sessions": len(browser_sessions),
+            "sessions": all_sessions,
             "websocket_info": websocket_info
         }
     except Exception as e:

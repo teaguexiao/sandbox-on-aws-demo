@@ -12,10 +12,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const sandboxTimerSpan = document.getElementById('sandbox-timer');
     const sandboxControlsDiv = document.getElementById('sandbox-controls');
     
+    // Session management
+    const sessionId = generateSessionId();
+    
     // WebSocket connection and timer variables
     let socket = null;
     let timerInterval = null;
     let sandboxTimeout = 1200; // Default timeout in seconds (will be updated from server)
+    
+    // Generate unique session ID
+    function generateSessionId() {
+        return 'browser_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    
+    // Display session info
+    function displaySessionInfo() {
+        const sessionInfo = document.createElement('div');
+        sessionInfo.className = 'alert alert-info mt-2';
+        sessionInfo.innerHTML = `<small><strong>Browser Session ID:</strong> ${sessionId}</small>`;
+        
+        const controlsCard = document.querySelector('.card-body');
+        if (controlsCard) {
+            controlsCard.insertBefore(sessionInfo, controlsCard.firstChild);
+        }
+    }
+    
+    // Initialize session info display
+    displaySessionInfo();
     
     // Connect to WebSocket
     function connectWebSocket() {
@@ -28,7 +51,13 @@ document.addEventListener('DOMContentLoaded', function() {
             socket = new WebSocket(wsUrl);
             
             socket.onopen = function(e) {
-                addLog('WebSocket connection established', 'success');
+                addLog(`WebSocket connection established (Session: ${sessionId})`, 'success');
+                
+                // Send session identification message
+                socket.send(JSON.stringify({
+                    action: 'identify_session',
+                    session_id: sessionId
+                }));
             };
         
         socket.onmessage = function(event) {
@@ -127,9 +156,10 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleDesktopStarted(data) {
         // Update UI
         
-        // Show sandbox ID
+        // Show sandbox ID and session info
         if (data.sandbox_id) {
-            sandboxIdSpan.textContent = `Sandbox ID: ${data.sandbox_id}`;
+            const sessionInfo = data.session_id ? ` (Session: ${data.session_id})` : '';
+            sandboxIdSpan.textContent = `Sandbox ID: ${data.sandbox_id}${sessionInfo}`;
         }
         
         // Load stream URL in iframe
@@ -257,6 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const formData = new FormData();
             formData.append('query', query);
+            formData.append('session_id', sessionId);
             
             const response = await fetch('/run-workflow', {
                 method: 'POST',
@@ -329,8 +360,12 @@ document.addEventListener('DOMContentLoaded', function() {
             addLog('Stopping desktop...', 'info');
             
             try {
+                const formData = new FormData();
+                formData.append('session_id', sessionId);
+                
                 const response = await fetch('/kill-desktop', {
-                    method: 'POST'
+                    method: 'POST',
+                    body: formData
                 });
                 
                 const data = await response.json();
