@@ -3,6 +3,7 @@ class ComputerUseInterface {
     constructor() {
         this.ws = null;
         this.isConnected = false;
+        this.sessionId = this.generateSessionId();
         this.currentSandboxId = null;
         this.currentStreamUrl = null;
         this.isTaskRunning = false;
@@ -12,6 +13,23 @@ class ComputerUseInterface {
         
         this.initializeEventListeners();
         this.connectWebSocket();
+        this.displaySessionInfo();
+    }
+
+    generateSessionId() {
+        return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    displaySessionInfo() {
+        // Add session ID to the UI for debugging/monitoring
+        const sessionInfo = document.createElement('div');
+        sessionInfo.className = 'alert alert-info mt-2';
+        sessionInfo.innerHTML = `<small><strong>Session ID:</strong> ${this.sessionId}</small>`;
+        
+        const controlsCard = document.querySelector('.card-body');
+        if (controlsCard) {
+            controlsCard.insertBefore(sessionInfo, controlsCard.firstChild);
+        }
     }
 
     initializeEventListeners() {
@@ -55,32 +73,57 @@ class ComputerUseInterface {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/ws`;
         
+        // Initialize reconnection tracking if not exists
+        if (!this.reconnectAttempts) {
+            this.reconnectAttempts = 0;
+            this.maxReconnectAttempts = 5;
+            this.reconnectDelay = 3000;
+        }
+        
         this.ws = new WebSocket(wsUrl);
         
         this.ws.onopen = () => {
-            console.log('WebSocket connected');
+            console.log('WebSocket connected for session:', this.sessionId);
             this.isConnected = true;
-            this.addLog('Connected to server', 'info');
+            this.reconnectAttempts = 0; // Reset on successful connection
+            this.addLog(`Connected to server (Session: ${this.sessionId})`, 'info');
+            
+            // Send session identification message
+            this.ws.send(JSON.stringify({
+                action: 'identify_session',
+                session_id: this.sessionId
+            }));
         };
         
         this.ws.onmessage = (event) => {
-            this.handleWebSocketMessage(JSON.parse(event.data));
+            try {
+                this.handleWebSocketMessage(JSON.parse(event.data));
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+                this.addLog('Error parsing server message', 'error');
+            }
         };
         
-        this.ws.onclose = () => {
-            console.log('WebSocket disconnected');
+        this.ws.onclose = (event) => {
+            console.log('WebSocket disconnected, code:', event.code, 'reason:', event.reason);
             this.isConnected = false;
-            this.addLog('Disconnected from server', 'error');
             
-            // Try to reconnect after 3 seconds
-            setTimeout(() => {
-                this.connectWebSocket();
-            }, 3000);
+            if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                this.reconnectAttempts++;
+                const delay = this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts - 1);
+                this.addLog(`Disconnected from server. Reconnecting in ${(delay/1000).toFixed(1)}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`, 'warning');
+                
+                setTimeout(() => {
+                    this.connectWebSocket();
+                }, delay);
+            } else {
+                this.addLog('Max reconnection attempts reached. Please refresh the page.', 'error');
+            }
         };
         
         this.ws.onerror = (error) => {
             console.error('WebSocket error:', error);
-            this.addLog('WebSocket error', 'error');
+            this.addLog('WebSocket connection error', 'error');
         };
     }
 
@@ -135,6 +178,11 @@ class ComputerUseInterface {
         this.currentStreamUrl = data.stream_url;
         this.startTime = Date.now();
         
+        // Update session ID if provided by server
+        if (data.session_id) {
+            this.sessionId = data.session_id;
+        }
+        
         // Show sandbox controls
         document.getElementById('sandbox-controls').style.display = 'flex';
         document.getElementById('sandbox-id').textContent = `ID: ${this.currentSandboxId}`;
@@ -153,7 +201,7 @@ class ComputerUseInterface {
         // Start timer
         this.startTimer();
         
-        this.addLog(`Desktop started: ${this.currentSandboxId}`, 'info');
+        this.addLog(`Desktop started: ${this.currentSandboxId} (Session: ${this.sessionId})`, 'info');
     }
 
     handleScreenshot(data) {
@@ -280,7 +328,7 @@ class ComputerUseInterface {
             const response = await fetch('/run-computer-use-task', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `query=${encodeURIComponent(taskInput)}`
+                body: `query=${encodeURIComponent(taskInput)}&session_id=${encodeURIComponent(this.sessionId)}`
             });
             
             // Check if response is ok
@@ -304,6 +352,10 @@ class ComputerUseInterface {
                 this.isTaskRunning = true;
                 this.updateButtonStates();
                 this.addLog('Computer use task started', 'success');
+                // Update session ID if server provided one
+                if (result.session_id) {
+                    this.sessionId = result.session_id;
+                }
             } else {
                 this.addLog(`Failed to start: ${result.message}`, 'error');
                 this.isTaskRunning = false;
@@ -333,7 +385,7 @@ class ComputerUseInterface {
             const response = await fetch('/run-computer-task', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `query=${encodeURIComponent(taskInput)}&sandbox_id=${this.currentSandboxId}`
+                body: `query=${encodeURIComponent(taskInput)}&session_id=${encodeURIComponent(this.sessionId)}&sandbox_id=${this.currentSandboxId}`
             });
             
             const result = await response.json();
@@ -362,7 +414,7 @@ class ComputerUseInterface {
             const response = await fetch('/take-computer-screenshot', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `sandbox_id=${this.currentSandboxId}`
+                body: `session_id=${encodeURIComponent(this.sessionId)}&sandbox_id=${this.currentSandboxId}`
             });
             
             const result = await response.json();
@@ -388,7 +440,8 @@ class ComputerUseInterface {
             
             const response = await fetch('/stop-computer-task', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `session_id=${encodeURIComponent(this.sessionId)}`
             });
             
             const result = await response.json();
@@ -418,7 +471,9 @@ class ComputerUseInterface {
 
         try {
             const response = await fetch('/kill-computer-desktop', {
-                method: 'POST'
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `session_id=${encodeURIComponent(this.sessionId)}`
             });
             
             const result = await response.json();
