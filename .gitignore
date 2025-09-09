@@ -65,3 +65,5 @@ node_modules/
 login_history.txt
 
 .kiro/
+
+amazon-bedrock-agentcore-samples/
