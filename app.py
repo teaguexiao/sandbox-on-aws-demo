@@ -40,6 +40,12 @@ from agentcore_browser_tool import (
     init_agentcore_vars, agentcore_session_manager
 )
 
+# Import AgentCore code interpreter functions
+from agentcore_code_interpreter import (
+    execute_agentcore_code, reset_agentcore_sessions, get_active_sessions,
+    init_agentcore_code_interpreter_vars
+)
+
 # Import E2B code interpreter
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -374,6 +380,8 @@ async def logout(response: Response):
 # Main route
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("index.html", {"request": request, "user": user})
 
 @app.get("/browser-use", response_class=HTMLResponse)
@@ -405,6 +413,12 @@ async def get_code_interpreter_e2b(request: Request, user: dict = Depends(get_cu
     if not user:
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("code-interpreter-e2b.html", {"request": request, "user": user})
+
+@app.get("/code-interpreter-agentcore", response_class=HTMLResponse)
+async def get_code_interpreter_agentcore(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("code-interpreter-agentcore.html", {"request": request, "user": user})
 
 @app.get("/sandbox-lifecycle", response_class=HTMLResponse)
 async def get_sandbox_lifecycle(request: Request, user: dict = Depends(get_current_user)):
@@ -680,7 +694,41 @@ async def reset_sandbox():
             "success": False,
             "error": str(e)
         }, status_code=500)
-        
+
+# AWS Bedrock AgentCore Code Interpreter API endpoints
+@app.post("/api/agentcore/execute")
+async def execute_agentcore_code_endpoint(code_request: CodeRequest):
+    """Execute code using AWS Bedrock AgentCore and return the result"""
+    result = await execute_agentcore_code(code_request.code)
+
+    if result["success"]:
+        return JSONResponse({
+            "success": True,
+            "output": result["output"],
+            "session_id": result["session_id"]
+        })
+    else:
+        return JSONResponse({
+            "success": False,
+            "error": result["error"]
+        }, status_code=500)
+
+@app.post("/api/agentcore/reset")
+async def reset_agentcore_session_endpoint():
+    """Reset AgentCore session by stopping all active sessions"""
+    result = await reset_agentcore_sessions()
+
+    if result["success"]:
+        return JSONResponse({
+            "success": True,
+            "message": result["message"]
+        })
+    else:
+        return JSONResponse({
+            "success": False,
+            "error": result["error"]
+        }, status_code=500)
+
 @app.post("/api/e2b/pause")
 async def pause_sandbox():
     """Pause the E2B sandbox"""
@@ -784,7 +832,10 @@ if __name__ == "__main__":
 
     # Initialize shared variables in agentcore_browser_tool.py
     init_agentcore_vars(manager, logger)
-    
+
+    # Initialize shared variables in agentcore_code_interpreter.py
+    init_agentcore_code_interpreter_vars(logger)
+
     # Log startup message
     logger.info("Starting Sandbox Desktop WebUI")
     logger.info("All logs will be streamed to the WebUI")

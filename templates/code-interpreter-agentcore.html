@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code Interpreter on E2B - Sandbox on AWS Demo UI</title>
+    <title>Code Interpreter on AWS Bedrock AgentCore - Sandbox on AWS Demo UI</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/css/style.css">
@@ -154,17 +154,17 @@
                 <div class="d-flex justify-content-center mb-4">
                     <div class="btn-group" role="group" aria-label="Code Interpreter Options">
                         <a href="/code-interpreter" class="btn btn-sm btn-outline-primary" id="lambda-tab">Lambda</a>
-                        <a href="/code-interpreter-e2b" class="btn btn-sm btn-primary active" id="e2b-tab" aria-current="page">E2B</a>
-                        <a href="/code-interpreter-agentcore" class="btn btn-sm btn-outline-primary" id="agentcore-tab">AgentCore</a>
+                        <a href="/code-interpreter-e2b" class="btn btn-sm btn-outline-primary" id="e2b-tab">E2B</a>
+                        <a href="/code-interpreter-agentcore" class="btn btn-sm btn-primary active" id="agentcore-tab" aria-current="page">AgentCore</a>
                         <a href="/code-interpreter-ec2" class="btn btn-sm btn-outline-primary" id="ec2-tab">EC2</a>
                     </div>
                 </div>
                 
-                <!-- Content for E2B tab -->
+                <!-- Content for AgentCore tab -->
                 <div class="tab-content">
-                    <div class="tab-pane fade show active" id="e2b-content">
+                    <div class="tab-pane fade show active" id="agentcore-content">
                         <div class="container">
-                            <h2 class="text-center mb-4">E2B Code Interpreter</h2>
+                            <h2 class="text-center mb-4">AWS Bedrock AgentCore Code Interpreter</h2>
                             <div class="row">
                                 <div class="col-12">
                                     <div class="card">
@@ -172,7 +172,7 @@
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <span>Python Code</span>
                                                 <div>
-                                                    <span class="sandbox-info" id="sandbox-status">Sandbox ID: Initializing...</span>
+                                                    <span class="sandbox-info" id="sandbox-status">Session ID: Not initialized</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -272,17 +272,17 @@ print(f"\nPrimes: {primes}")
             const codeOutput = document.getElementById('code-output');
             const eventLog = document.getElementById('event-log');
             const sandboxStatus = document.getElementById('sandbox-status');
-            
-            let currentSandboxId = null;
-            
+
+            let currentSessionId = null;
+
             // Function to add event to log with timestamp
             function logEvent(message, type = 'info') {
                 const now = new Date();
                 const timestamp = now.toLocaleTimeString();
-                const eventClass = type === 'error' ? 'text-danger' : 
-                                   type === 'success' ? 'text-success' : 
+                const eventClass = type === 'error' ? 'text-danger' :
+                                   type === 'success' ? 'text-success' :
                                    type === 'warning' ? 'text-warning' : 'text-info';
-                
+
                 const eventElement = document.createElement('div');
                 eventElement.className = eventClass;
                 eventElement.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
@@ -302,10 +302,10 @@ print(f"\nPrimes: {primes}")
                 executeBtn.disabled = true;
                 executeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Executing...';
                 codeOutput.textContent = 'Executing code...';
-                logEvent('Starting code execution...', 'info');
+                logEvent('Starting code execution with AWS Bedrock AgentCore...', 'info');
 
                 try {
-                    const response = await fetch('/api/e2b/execute', {
+                    const response = await fetch('/api/agentcore/execute', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -314,60 +314,34 @@ print(f"\nPrimes: {primes}")
                     });
 
                     const result = await response.json();
-                    
+
                     if (result.success) {
-                        logEvent('Code execution completed', 'success');
-                        
-                        // Format the output in a structured way
-                        if (result.output && typeof result.output === 'string') {
-                            // Parse the execution results from the string
-                            try {
-                                // Extract stdout and stderr from the output
-                                const outputData = JSON.parse(result.output.replace('Execution(Results: [], Logs: Logs(stdout: ', '{"stdout":').replace('), stderr: [', ', "stderr":[').replace(']), Error: None)', '}'));
-                                
-                                // Create a structured output
-                                let formattedOutput = '<div class="execution-results">';
-                                
-                                // Add stdout content
-                                if (outputData.stdout && outputData.stdout.length > 0) {
-                                    formattedOutput += '<div class="result-section"><h6 class="text-success">Standard Output:</h6>';
-                                    formattedOutput += '<pre class="p-2 bg-light border rounded">';
-                                    outputData.stdout.forEach(line => {
-                                        formattedOutput += line.replace(/\n/g, '<br>');
-                                    });
-                                    formattedOutput += '</pre></div>';
-                                }
-                                
-                                // Add stderr content if it exists and isn't empty
-                                if (outputData.stderr && outputData.stderr.length > 0) {
-                                    formattedOutput += '<div class="result-section mt-3"><h6 class="text-warning">Progress Output:</h6>';
-                                    formattedOutput += '<pre class="p-2 bg-light border rounded">';
-                                    outputData.stderr.forEach(line => {
-                                        formattedOutput += line.replace(/\n/g, '<br>');
-                                    });
-                                    formattedOutput += '</pre></div>';
-                                }
-                                
-                                formattedOutput += '</div>';
-                                codeOutput.innerHTML = formattedOutput;
-                            } catch (e) {
-                                // Fallback if parsing fails
-                                codeOutput.textContent = result.output;
-                                logEvent('Could not parse structured output', 'warning');
-                            }
+                        logEvent('Code execution completed successfully', 'success');
+
+                        // Display the output from AgentCore
+                        if (result.output) {
+                            let formattedOutput = '<div class="execution-results">';
+                            formattedOutput += '<div class="result-section">';
+                            formattedOutput += '<h6 class="text-success">AgentCore Output:</h6>';
+                            formattedOutput += '<pre class="p-2 bg-light border rounded">';
+                            formattedOutput += result.output.replace(/\n/g, '<br>');
+                            formattedOutput += '</pre></div>';
+                            formattedOutput += '</div>';
+                            codeOutput.innerHTML = formattedOutput;
                         } else {
-                            codeOutput.textContent = result.output || 'No output returned';
+                            codeOutput.textContent = 'No output returned from AgentCore';
                         }
-                        
-                        currentSandboxId = result.sandbox_id;
-                        sandboxStatus.textContent = `Sandbox ID: ${currentSandboxId}`;
-                        logEvent(`Results displayed from sandbox: ${currentSandboxId}`, 'info');
+
+                        currentSessionId = result.session_id;
+                        sandboxStatus.textContent = `Session ID: ${currentSessionId}`;
+                        logEvent(`Results displayed from session: ${currentSessionId}`, 'info');
                     } else {
                         codeOutput.textContent = `Error: ${result.error}`;
                         logEvent(`Execution error: ${result.error}`, 'error');
                     }
                 } catch (error) {
                     codeOutput.textContent = `Error: ${error.message}`;
+                    logEvent(`Network error: ${error.message}`, 'error');
                 } finally {
                     // Reset button state
                     executeBtn.disabled = false;
@@ -380,29 +354,34 @@ print(f"\nPrimes: {primes}")
                 // Show loading state
                 resetBtn.disabled = true;
                 resetBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Resetting...';
-                logEvent('Resetting sandbox...', 'info');
-                
+                logEvent('Resetting AgentCore session...', 'info');
+
                 try {
-                    const response = await fetch('/api/e2b/reset', {
-                        method: 'POST'
+                    const response = await fetch('/api/agentcore/reset', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ session_id: currentSessionId })
                     });
 
                     const result = await response.json();
-                    
+
                     if (result.success) {
-                        currentSandboxId = result.sandbox_id;
-                        sandboxStatus.textContent = `Sandbox ID: ${currentSandboxId}`;
-                        codeOutput.innerHTML = '<div class="alert alert-success">Sandbox reset successfully. Ready for new code execution.</div>';
-                        logEvent(`New sandbox created with ID: ${currentSandboxId}`, 'success');
-                        // Clear event log when resetting sandbox
+                        currentSessionId = null;
+                        sandboxStatus.textContent = 'Session ID: Reset completed';
+                        codeOutput.innerHTML = '<div class="alert alert-success">AgentCore session reset successfully. Ready for new code execution.</div>';
+                        logEvent('Session terminated and reset completed', 'success');
+                        // Clear event log when resetting session
                         eventLog.innerHTML = '';
-                        logEvent('Sandbox initialized and ready', 'info');
+                        logEvent('AgentCore session ready for new execution', 'info');
                     } else {
-                        codeOutput.innerHTML = `<div class="alert alert-danger">Error resetting sandbox: ${result.error}</div>`;
-                        logEvent(`Failed to reset sandbox: ${result.error}`, 'error');
+                        codeOutput.innerHTML = `<div class="alert alert-danger">Error resetting session: ${result.error}</div>`;
+                        logEvent(`Failed to reset session: ${result.error}`, 'error');
                     }
                 } catch (error) {
                     codeOutput.textContent = `Error: ${error.message}`;
+                    logEvent(`Network error during reset: ${error.message}`, 'error');
                 } finally {
                     // Reset button state
                     resetBtn.disabled = false;
@@ -410,12 +389,12 @@ print(f"\nPrimes: {primes}")
                 }
             });
 
-            // Initialize sandbox on page load
-            resetBtn.click();
+            // Initialize with ready state
+            logEvent('AWS Bedrock AgentCore Code Interpreter ready', 'info');
         });
     </script>
     <script src="/static/js/script.js"></script>
-    
+
     <!-- Image Modal -->
     <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
