@@ -87,12 +87,22 @@ button.active {
 }
 
 /* Added control button styles */
-.control-group {
+.control-group, .debug-controls {
     display: flex;
     gap: 8px;
     align-items: center;
     padding-right: 20px;
     border-right: 1px solid #dee2e6;
+}
+
+.debug-controls {
+    border-right: none;
+}
+
+.debug-controls button.active {
+    background: #28a745;
+    color: white;
+    border-color: #28a745;
 }
 
 .btn-take-control {

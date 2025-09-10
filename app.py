@@ -34,6 +34,12 @@ from sandbox_computer_use import (
     stop_computer_task, kill_computer_desktop, init_computer_use_vars
 )
 
+# Import Agentcore browser tool functions
+from agentcore_browser_tool import (
+    start_agentcore_browser, run_agentcore_browser_task, stop_agentcore_browser,
+    init_agentcore_vars, agentcore_session_manager
+)
+
 # Import E2B code interpreter
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -376,6 +382,12 @@ async def get_browser_use(request: Request, user: dict = Depends(get_current_use
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("browser-use.html", {"request": request, "user": user, "stream_url": stream_url})
 
+@app.get("/browser-use-agentcore", response_class=HTMLResponse)
+async def get_browser_use_agentcore(request: Request, user: dict = Depends(get_current_user)):
+    if not user:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("browser-use-agentcore.html", {"request": request, "user": user})
+
 @app.get("/computer-use", response_class=HTMLResponse)
 async def get_computer_use(request: Request, user: dict = Depends(get_current_user)):
     if not user:
@@ -505,6 +517,36 @@ async def kill_computer_desktop_endpoint(session_id: str = Form(None)):
         logger.error(f"Error in kill_computer_desktop_endpoint: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
+# Agentcore BrowserTool API endpoints
+@app.post("/start-agentcore-browser")
+async def start_agentcore_browser_endpoint(session_id: str = Form(None), region: str = Form("us-west-2")):
+    """Start Agentcore browser session"""
+    try:
+        return await start_agentcore_browser(session_id=session_id, region=region)
+    except Exception as e:
+        logger.error(f"Error in start_agentcore_browser_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/run-agentcore-browser-task")
+async def run_agentcore_browser_task_endpoint(prompt: str = Form(...), session_id: str = Form(...), background_tasks: BackgroundTasks = BackgroundTasks()):
+    """Run Agentcore browser automation task"""
+    try:
+        # Run task in background
+        background_tasks.add_task(run_agentcore_browser_task, prompt, session_id)
+        return {"status": "success", "message": "Agentcore browser task started"}
+    except Exception as e:
+        logger.error(f"Error in run_agentcore_browser_task_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+@app.post("/stop-agentcore-browser")
+async def stop_agentcore_browser_endpoint(session_id: str = Form(...)):
+    """Stop Agentcore browser session"""
+    try:
+        return await stop_agentcore_browser(session_id=session_id)
+    except Exception as e:
+        logger.error(f"Error in stop_agentcore_browser_endpoint: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
 @app.get("/api/sessions/status")
 async def get_sessions_status():
     """Get status of all active sessions (computer-use and browser-use)"""
@@ -543,8 +585,24 @@ async def get_sessions_status():
                 "connections": len(session.connections)
             }
             browser_sessions.append(session_info)
-        
-        all_sessions = computer_sessions + browser_sessions
+
+        # Agentcore browser sessions
+        agentcore_sessions = []
+        for session_id, session in agentcore_session_manager.sessions.items():
+            session_info = {
+                "session_id": session_id,
+                "type": "agentcore-browser",
+                "created_at": session.created_at.isoformat(),
+                "last_activity": session.last_activity.isoformat(),
+                "has_browser_client": session.browser_client is not None,
+                "has_browser_session": session.browser_session is not None,
+                "has_viewer_url": session.viewer_url is not None,
+                "task_running": session.current_task is not None,
+                "connections": len(session.connections)
+            }
+            agentcore_sessions.append(session_info)
+
+        all_sessions = computer_sessions + browser_sessions + agentcore_sessions
         
         # Also include WebSocket connection info
         websocket_info = {
@@ -558,6 +616,7 @@ async def get_sessions_status():
             "total_sessions": len(all_sessions),
             "computer_use_sessions": len(computer_sessions),
             "browser_use_sessions": len(browser_sessions),
+            "agentcore_browser_sessions": len(agentcore_sessions),
             "sessions": all_sessions,
             "websocket_info": websocket_info
         }
@@ -720,8 +779,11 @@ if __name__ == "__main__":
     # Initialize shared variables in browser_use.py
     init_shared_vars(manager, logger, ws_handler, stdout_capture, stderr_capture, sessions)
     
-    # Initialize shared variables in computer_use.py  
+    # Initialize shared variables in computer_use.py
     init_computer_use_vars(manager, logger, ws_handler, stdout_capture, stderr_capture, sessions)
+
+    # Initialize shared variables in agentcore_browser_tool.py
+    init_agentcore_vars(manager, logger)
     
     # Log startup message
     logger.info("Starting Sandbox Desktop WebUI")

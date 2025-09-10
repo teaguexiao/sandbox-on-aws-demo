@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fullscreen Functionality Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <h1>Fullscreen Functionality Test</h1>
+        
+        <!-- Test Browser Panel -->
+        <div class="row">
+            <div class="col-md-7 stream-panel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3>Browser Stream - Powered by Agentcore BrowserTool</h3>
+                        <div class="d-flex align-items-center">
+                            <button id="agentcore-fullscreen-btn" class="btn btn-outline-primary btn-sm me-2" title="Open in fullscreen">
+                                <i class="fas fa-expand"></i>
+                            </button>
+                            <div id="agentcore-controls" class="d-flex align-items-center">
+                                <span id="agentcore-timer" class="badge bg-secondary me-2 py-2 px-3 fs-6">05:30</span>
+                                <span id="agentcore-session-id" class="badge bg-info me-2">test-session-123</span>
+                                <button id="stop-agentcore-browser" class="btn btn-danger py-1 px-2 fs-6">Stop</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="agentcore-browser-container" style="width: 100%; height: 500px; position: relative;">
+                            <div id="agentcore-browser-placeholder" style="display: none; align-items: center; justify-content: center; height: 100%; background-color: #f8f9fa; border: 2px dashed #dee2e6; border-radius: 8px;">
+                                <p style="color: #6c757d; margin: 0;">No active browser session. Start a new session to begin.</p>
+                            </div>
+                            <iframe id="agentcore-browser-frame" src="https://www.example.com" style="width: 100%; height: 100%; border: none; border-radius: 8px;"></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Test Controls -->
+            <div class="col-md-5">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Test Controls</h3>
+                    </div>
+                    <div class="card-body">
+                        <button id="simulate-start" class="btn btn-success mb-2">Simulate Browser Start</button>
+                        <button id="simulate-stop" class="btn btn-danger mb-2">Simulate Browser Stop</button>
+                        <div id="test-logs" class="mt-3" style="height: 200px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; background-color: #f8f9fa;">
+                            <div class="log-entry">Test environment ready...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Agentcore Browser Fullscreen Modal -->
+    <div class="modal fade" id="agentcoreFullscreenModal" tabindex="-1" aria-labelledby="agentcoreFullscreenModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="agentcoreFullscreenModalLabel">
+                        <i class="fas fa-globe me-2"></i>Agentcore Browser - Fullscreen View
+                    </h5>
+                    <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times me-1"></i>Exit Fullscreen
+                    </button>
+                </div>
+                <div class="modal-body p-0">
+                    <div id="agentcore-fullscreen-container" style="width: 100%; height: calc(100vh - 60px);">
+                        <!-- Browser iframe will be moved here when in fullscreen mode -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Test implementation of fullscreen functionality
+        function addTestLog(message) {
+            const testLogs = document.getElementById('test-logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span style="color: #666;">[${new Date().toLocaleTimeString()}]</span> ${message}`;
+            testLogs.appendChild(logEntry);
+            testLogs.scrollTop = testLogs.scrollHeight;
+        }
+
+        // Open Agentcore browser in fullscreen mode
+        function openAgentcoreFullscreen() {
+            const agentcoreBrowserFrame = document.getElementById('agentcore-browser-frame');
+            const agentcoreFullscreenContainer = document.getElementById('agentcore-fullscreen-container');
+            const agentcoreFullscreenModal = new bootstrap.Modal(document.getElementById('agentcoreFullscreenModal'));
+            
+            if (!agentcoreBrowserFrame || agentcoreBrowserFrame.style.display === 'none') {
+                addTestLog('❌ No active browser session to display in fullscreen.');
+                return;
+            }
+            
+            // Clone the iframe to preserve the current state
+            const clonedFrame = agentcoreBrowserFrame.cloneNode(true);
+            clonedFrame.id = 'agentcore-browser-frame-fullscreen';
+            
+            // Clear the fullscreen container and add the cloned iframe
+            agentcoreFullscreenContainer.innerHTML = '';
+            agentcoreFullscreenContainer.appendChild(clonedFrame);
+            
+            // Show the fullscreen modal
+            agentcoreFullscreenModal.show();
+            
+            // Add event listener for when modal is hidden
+            document.getElementById('agentcoreFullscreenModal').addEventListener('hidden.bs.modal', function() {
+                closeAgentcoreFullscreen();
+            }, { once: true });
+            
+            addTestLog('✅ Browser opened in fullscreen mode.');
+        }
+
+        // Close Agentcore browser fullscreen mode
+        function closeAgentcoreFullscreen() {
+            const agentcoreFullscreenContainer = document.getElementById('agentcore-fullscreen-container');
+            
+            // Clear the fullscreen container
+            if (agentcoreFullscreenContainer) {
+                agentcoreFullscreenContainer.innerHTML = '';
+            }
+            
+            addTestLog('✅ Exited fullscreen mode.');
+        }
+
+        // Simulate browser start
+        function simulateBrowserStart() {
+            const agentcoreFullscreenBtn = document.getElementById('agentcore-fullscreen-btn');
+            const agentcoreControls = document.getElementById('agentcore-controls');
+            const agentcoreBrowserFrame = document.getElementById('agentcore-browser-frame');
+            const agentcoreBrowserPlaceholder = document.getElementById('agentcore-browser-placeholder');
+            
+            agentcoreFullscreenBtn.style.display = 'inline-block';
+            agentcoreControls.style.display = 'flex';
+            agentcoreBrowserFrame.style.display = 'block';
+            agentcoreBrowserPlaceholder.style.display = 'none';
+            
+            addTestLog('✅ Browser session started - fullscreen button is now visible.');
+        }
+
+        // Simulate browser stop
+        function simulateBrowserStop() {
+            const agentcoreFullscreenBtn = document.getElementById('agentcore-fullscreen-btn');
+            const agentcoreControls = document.getElementById('agentcore-controls');
+            const agentcoreBrowserFrame = document.getElementById('agentcore-browser-frame');
+            const agentcoreBrowserPlaceholder = document.getElementById('agentcore-browser-placeholder');
+            
+            agentcoreFullscreenBtn.style.display = 'none';
+            agentcoreControls.style.display = 'none';
+            agentcoreBrowserFrame.style.display = 'none';
+            agentcoreBrowserPlaceholder.style.display = 'flex';
+            
+            addTestLog('✅ Browser session stopped - fullscreen button is now hidden.');
+        }
+
+        // Initialize test functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Fullscreen button
+            document.getElementById('agentcore-fullscreen-btn').addEventListener('click', openAgentcoreFullscreen);
+            
+            // Test controls
+            document.getElementById('simulate-start').addEventListener('click', simulateBrowserStart);
+            document.getElementById('simulate-stop').addEventListener('click', simulateBrowserStop);
+            
+            addTestLog('🧪 Test environment initialized. Use the buttons to test fullscreen functionality.');
+            
+            // Start with browser session active for testing
+            simulateBrowserStart();
+        });
+    </script>
+</body>
+</html>

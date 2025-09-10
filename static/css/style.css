@@ -15,6 +15,147 @@ body {
     margin: 0;
 }
 
+/* Beautiful User Info and Authentication Styling */
+.user-info {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+}
+
+.user-info i {
+    margin-right: 6px;
+}
+
+.logout-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    margin-left: 10px;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.logout-btn:hover {
+    background: rgba(255,255,255,0.3);
+    color: white;
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+
+/* Enhanced GitHub Link Styling */
+.github-link {
+    color: #495057;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #dee2e6;
+    background-color: white;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.github-link:hover {
+    color: #0d6efd;
+    background-color: #e9ecef;
+    border-color: #0d6efd;
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.github-icon {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
+}
+
+/* Enhanced Navigation Tab Styling */
+.nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 1.5rem;
+}
+
+.nav-tabs .nav-link {
+    color: #495057;
+    font-weight: 500;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px 8px 0 0;
+    margin-right: 4px;
+    transition: all 0.2s ease;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.nav-tabs .nav-link:hover {
+    color: #0d6efd;
+    background: #f8f9fa;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.nav-tabs .nav-link.active {
+    color: #0d6efd;
+    font-weight: 600;
+    background: white;
+    border-bottom: 3px solid #0d6efd;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+}
+
+/* Coming Soon Badge Styling */
+.coming-soon-badge {
+    font-size: 0.65rem;
+    margin-left: 5px;
+    padding: 0.25em 0.5em;
+    vertical-align: middle;
+    font-weight: normal;
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    color: white;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Enhanced Card Styling */
+.card {
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-bottom: 1px solid #dee2e6;
+    padding: 16px 24px;
+    border-radius: 12px 12px 0 0;
+}
+
+.card-header h3 {
+    font-size: 18px;
+    margin: 0;
+    color: #333;
+    font-weight: 600;
+}
+
 .main-content {
     height: calc(100vh - 100px);
 }
@@ -79,7 +220,7 @@ body {
     border: none;
 }
 
-#log-container {
+#log-container, #agentcore-log-container {
     flex: 1;
     min-height: 400px; /* Reduced height since it's now inside the controls card */
     overflow-y: auto;
@@ -93,13 +234,13 @@ body {
 }
 
 /* Ensure the logs div inside log-container is also left-aligned */
-#logs {
+#logs, #agentcore-logs {
     text-align: left !important;
     width: 100%;
     display: block;
 }
 
-#logs .log-entry {
+#logs .log-entry, #agentcore-logs .log-entry {
     margin-bottom: 5px;
     word-break: break-word;
     text-align: left !important;
@@ -139,7 +280,7 @@ body {
 }
 
 /* Ensure badges in log entries are properly aligned */
-#logs .log-entry .badge {
+#logs .log-entry .badge, #agentcore-logs .log-entry .badge {
     margin-right: 8px !important;
     margin-left: 0 !important;
     vertical-align: baseline !important;
@@ -147,14 +288,14 @@ body {
 }
 
 /* Ensure timestamps are consistently formatted */
-#logs .log-entry .text-muted {
+#logs .log-entry .text-muted, #agentcore-logs .log-entry .text-muted {
     margin-right: 8px !important;
     margin-left: 0 !important;
     display: inline !important;
 }
 
 /* Override any Bootstrap flexbox or alignment on log entry children */
-#logs .log-entry * {
+#logs .log-entry *, #agentcore-logs .log-entry * {
     text-align: left !important;
 }
 
@@ -199,9 +340,30 @@ body {
     color: white;
 }
 
+.btn-info:hover {
+    background: linear-gradient(135deg, #1976d2, #0b5ed7);
+    color: white;
+}
+
 /* Danger button (Stop Sandbox) */
 .btn-danger {
     background: linear-gradient(135deg, #ff5252, #dc3545);
+    color: white;
+}
+
+.btn-danger:hover {
+    background: linear-gradient(135deg, #f44336, #c82333);
+    color: white;
+}
+
+/* Success button */
+.btn-success {
+    background: linear-gradient(135deg, #4caf50, #28a745);
+    color: white;
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #43a047, #218838);
     color: white;
 }
 
@@ -215,12 +377,25 @@ body {
 .btn-outline-secondary:hover {
     background: #f8f9fa;
     color: #495057;
+    border-color: #adb5bd;
 }
 
 .btn-outline-secondary.active {
     background: linear-gradient(135deg, #6c757d, #5a6268);
     color: white;
-    border-color: transparent;
+}
+
+/* Primary outline button */
+.btn-outline-primary {
+    border: 1px solid #0d6efd;
+    background: white;
+    color: #0d6efd;
+}
+
+.btn-outline-primary:hover {
+    background: linear-gradient(135deg, #2196f3, #0d6efd);
+    color: white;
+    border-color: #0d6efd;
 }
 
 /* Badge styles */
@@ -228,6 +403,63 @@ body {
     font-weight: 500;
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Fullscreen modal styles */
+.modal-fullscreen {
+    width: 100vw;
+    max-width: none;
+    height: 100vh;
+    margin: 0;
+}
+
+.modal-fullscreen .modal-content {
+    height: 100vh;
+    border: none;
+    border-radius: 0;
+}
+
+.modal-fullscreen .modal-header {
+    border-bottom: 1px solid #495057;
+    padding: 0.75rem 1rem;
+    min-height: 60px;
+}
+
+.modal-fullscreen .modal-body {
+    overflow: hidden;
+}
+
+#agentcore-fullscreen-container {
+    background-color: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+#agentcore-fullscreen-container:empty::before {
+    content: "Loading browser content...";
+    color: #fff;
+    font-size: 18px;
+    text-align: center;
+}
+
+#agentcore-fullscreen-container iframe {
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+/* Fullscreen button styles */
+#agentcore-fullscreen-btn {
+    transition: all 0.2s ease;
+}
+
+#agentcore-fullscreen-btn:hover {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
 }
 
 @media (max-width: 767.98px) {
@@ -244,7 +476,7 @@ body {
         height: 400px;
     }
     
-    #log-container {
+    #log-container, #agentcore-log-container {
         height: 500px; /* Smaller height on mobile but still larger than original */
     }
 }

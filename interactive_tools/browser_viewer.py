@@ -58,8 +58,8 @@ class BrowserViewerServer:
     def _create_static_files(self):
         """Create the JavaScript and CSS files included with the SDK."""
         
-        # Create bedrock-agentcore-browser-viewer.js with enhanced debugging
-        js_content = '''// Bedrock-AgentCore Browser Viewer Module with Enhanced Debugging
+        # Create bedrock-agentcore-browser-viewer.js with reduced logging
+        js_content = '''// Bedrock-AgentCore Browser Viewer Module with Optimized Logging
 import dcv from "../dcvjs/dcv.js";
 export class BedrockAgentCoreLiveViewer {
     constructor(presignedUrl, containerId = 'dcv-display') {
@@ -67,31 +67,40 @@ export class BedrockAgentCoreLiveViewer {
         this.presignedUrl = presignedUrl;
         this.containerId = containerId;
         this.connection = null;
-        this.desiredWidth = 1600;
-        this.desiredHeight = 900;
-        console.log('[BedrockAgentCoreLiveViewer] Initialized with URL:', presignedUrl);
+        this.desiredWidth = 1280;
+        this.desiredHeight = 720;
+        this.debugMode = false; // Set to true for verbose logging
+
+        if (this.debugMode) {
+            console.log('[BedrockAgentCoreLiveViewer] Initialized with URL:', presignedUrl);
+        }
+    }
+
+    log(message, level = 'info') {
+        if (this.debugMode || level === 'error' || level === 'warn') {
+            console[level]('[BedrockAgentCoreLiveViewer]', message);
+        }
     }
 
     httpExtraSearchParamsCallBack(method, url, body, returnType) {
-        console.log('[BedrockAgentCoreLiveViewer] httpExtraSearchParamsCallBack called:', { method, url, returnType });
+        this.log(`httpExtraSearchParamsCallBack called: ${method} ${url}`, 'debug');
         const parsedUrl = new URL(this.presignedUrl);
         const params = parsedUrl.searchParams;
-        console.log('[BedrockAgentCoreLiveViewer] Returning auth params:', params.toString());
+        this.log(`Returning auth params: ${params.toString()}`, 'debug');
         return params;
     }
     
     displayLayoutCallback(serverWidth, serverHeight, heads) {
-        console.log(`[BedrockAgentCoreLiveViewer] Display layout callback: ${serverWidth}x${serverHeight}`);
-        
+        this.log(`Display layout callback: ${serverWidth}x${serverHeight}`, 'debug');
+
         const display = document.getElementById(this.containerId);
         display.style.width = `${this.desiredWidth}px`;
         display.style.height = `${this.desiredHeight}px`;
 
         if (this.connection) {
-            console.log(`[BedrockAgentCoreLiveViewer] Requesting display layout: ${this.desiredWidth}x${this.desiredHeight}`);
+            this.log(`Requesting display layout: ${this.desiredWidth}x${this.desiredHeight}`, 'debug');
             // Only request display layout once
             if (!this.displayLayoutRequested) {
-                console.log('inside this method');
                 this.connection.requestDisplayLayout([{
                 name: "Main Display",
                 rect: {
@@ -104,6 +113,7 @@ export class BedrockAgentCoreLiveViewer {
                 }]);
 
                 this.displayLayoutRequested = true;
+                this.log(`Display layout requested: ${this.desiredWidth}x${this.desiredHeight}`, 'info');
             }
         }
     }
@@ -115,41 +125,43 @@ export class BedrockAgentCoreLiveViewer {
                 return;
             }
 
-            console.log('[BedrockAgentCoreLiveViewer] DCV SDK loaded, version:', dcv.version || 'Unknown');
-            console.log('[BedrockAgentCoreLiveViewer] Available DCV methods:', Object.keys(dcv));
-            console.log('[BedrockAgentCoreLiveViewer] Presigned URL:', this.presignedUrl);
-            
-            // Set debug logging
+            this.log(`DCV SDK loaded, version: ${dcv.version || 'Unknown'}`, 'info');
+            this.log(`Available DCV methods: ${Object.keys(dcv).join(', ')}`, 'debug');
+            this.log(`Presigned URL: ${this.presignedUrl.substring(0, 50)}...`, 'debug');
+
+            // Set appropriate logging level for DCV
             if (dcv.setLogLevel) {
-                dcv.setLogLevel(dcv.LogLevel.DEBUG);
-                console.log('[BedrockAgentCoreLiveViewer] DCV log level set to DEBUG');
+                // Use INFO level instead of DEBUG to reduce DCV internal logging
+                dcv.setLogLevel(this.debugMode ? dcv.LogLevel.DEBUG : dcv.LogLevel.INFO);
+                this.log(`DCV log level set to ${this.debugMode ? 'DEBUG' : 'INFO'}`, 'debug');
             }
 
-            console.log('[BedrockAgentCoreLiveViewer] Starting authentication...');
+            this.log('Starting authentication...', 'info');
             
             dcv.authenticate(this.presignedUrl, {
                 promptCredentials: () => {
-                    console.warn('[BedrockAgentCoreLiveViewer] DCV requested credentials - should not happen with presigned URL');
+                    this.log('DCV requested credentials - should not happen with presigned URL', 'warn');
                 },
                 error: (auth, error) => {
-                    console.error('[BedrockAgentCoreLiveViewer] DCV auth error:', error);
-                    console.error('[BedrockAgentCoreLiveViewer] Error details:', {
-                        message: error.message || error,
-                        code: error.code,
-                        statusCode: error.statusCode,
-                        stack: error.stack
-                    });
+                    this.log(`DCV auth error: ${error.message || error}`, 'error');
+                    if (this.debugMode) {
+                        this.log(`Error details: ${JSON.stringify({
+                            message: error.message || error,
+                            code: error.code,
+                            statusCode: error.statusCode
+                        })}`, 'error');
+                    }
                     reject(error);
                 },
                 success: (auth, result) => {
-                    console.log('[BedrockAgentCoreLiveViewer] DCV auth success:', result);
+                    this.log('DCV auth success', 'info');
                     if (result && result[0]) {
                         const { sessionId, authToken } = result[0];
-                        console.log('[BedrockAgentCoreLiveViewer] Session ID:', sessionId);
-                        console.log('[BedrockAgentCoreLiveViewer] Auth token received:', authToken ? 'Yes' : 'No');
+                        this.log(`Session ID: ${sessionId}`, 'debug');
+                        this.log(`Auth token received: ${authToken ? 'Yes' : 'No'}`, 'debug');
                         this.connectToSession(sessionId, authToken, resolve, reject);
                     } else {
-                        console.error('[BedrockAgentCoreLiveViewer] No session data in auth result');
+                        this.log('No session data in auth result', 'error');
                         reject(new Error('No session data in auth result'));
                     }
                 },
@@ -159,8 +171,8 @@ export class BedrockAgentCoreLiveViewer {
     }
 
     connectToSession(sessionId, authToken, resolve, reject) {
-        console.log('[BedrockAgentCoreLiveViewer] Connecting to session:', sessionId);
-        
+        this.log(`Connecting to session: ${sessionId}`, 'info');
+
         const connectOptions = {
             url: this.presignedUrl,
             sessionId: sessionId,
@@ -169,27 +181,27 @@ export class BedrockAgentCoreLiveViewer {
             baseUrl: "/static/dcvjs",
             callbacks: {
                 firstFrame: () => {
-                    console.log('[BedrockAgentCoreLiveViewer] First frame received!');
+                    this.log('First frame received - connection ready!', 'info');
                     resolve(this.connection);
                 },
                 error: (error) => {
-                    console.error('[BedrockAgentCoreLiveViewer] Connection error:', error);
+                    this.log(`Connection error: ${error.message || error}`, 'error');
                     reject(error);
                 },
                 httpExtraSearchParams: this.httpExtraSearchParamsCallBack.bind(this),
                 displayLayout: this.displayLayoutCallback.bind(this)
             }
         };
-        
-        console.log('[BedrockAgentCoreLiveViewer] Connect options:', connectOptions);
-        
+
+        this.log('Establishing DCV connection...', 'debug');
+
         dcv.connect(connectOptions)
         .then(connection => {
-            console.log('[BedrockAgentCoreLiveViewer] Connection established:', connection);
+            this.log('Connection established successfully', 'info');
             this.connection = connection;
         })
         .catch(error => {
-            console.error('[BedrockAgentCoreLiveViewer] Connect failed:', error);
+            this.log(`Connect failed: ${error.message || error}`, 'error');
             reject(error);
         });
     }
@@ -305,12 +317,22 @@ button.active {
 }
 
 /* Added control button styles */
-.control-group {
+.control-group, .debug-controls {
     display: flex;
     gap: 8px;
     align-items: center;
     padding-right: 20px;
     border-right: 1px solid #dee2e6;
+}
+
+.debug-controls {
+    border-right: none;
+}
+
+.debug-controls button.active {
+    background: #28a745;
+    color: white;
+    border-color: #28a745;
 }
 
 .btn-take-control {
@@ -569,6 +591,9 @@ button.active {
                 <button onclick="setSize(1920, 1080)" id="size-1080">1920×1080</button>
                 <button onclick="setSize(2560, 1440)" id="size-1440">2560×1440</button>
             </div>
+            <div class="debug-controls">
+                <button onclick="toggleDebugMode()" id="debug-toggle">🐛 Debug: OFF</button>
+            </div>
             <span id="status">Initializing...</span>
         </div>
     </div>
@@ -580,7 +605,17 @@ button.active {
     <script>
         // Tell DCV where to find its worker files
         window.dcvWorkerPath = '/static/dcvjs/dcv/';
-        console.log('[Main] DCV worker path set to:', window.dcvWorkerPath);
+
+        // Check for debug mode via URL parameter or localStorage
+        const urlParams = new URLSearchParams(window.location.search);
+        const debugFromUrl = urlParams.get('debug') === 'true';
+        const debugFromStorage = localStorage.getItem('dcv-debug-mode') === 'true';
+        window.debugMode = debugFromUrl || debugFromStorage;
+
+        if (window.debugMode) {{
+            //console.log('[Main] Debug mode enabled - verbose logging active');
+            //console.log('[Main] DCV worker path set to:', window.dcvWorkerPath);
+        }}
     </script>
     
     <!-- Load DCV SDK -->
@@ -590,10 +625,14 @@ button.active {
     <script type="module">
         import {{ BedrockAgentCoreLiveViewer }} from '/static/js/bedrock-agentcore-browser-viewer.js';
         
-        // Debug logging
+        // Optimized logging with debug mode control
         const debugInfo = document.getElementById('debug-info');
-        function log(message) {{
-            console.log(message);
+        function log(message, level = 'info') {{
+            // Always show errors and warnings, only show info/debug in debug mode
+            if (level === 'error' || level === 'warn' || window.debugMode) {{
+                console[level === 'debug' ? 'log' : level](message);
+            }}
+            // Always add to debug panel for user visibility
             debugInfo.innerHTML += message + '<br>';
             debugInfo.scrollTop = debugInfo.scrollHeight;
         }}
@@ -601,21 +640,21 @@ button.active {
         // Global viewer instance
         let viewer = null;
         
-        // Display the presigned URL for debugging
-        log('[Main] Presigned URL: ' + '{presigned_url}'.substring(0, 100) + '...');
-        
+        // Display the presigned URL for debugging (only in debug mode)
+        //log('[Main] Presigned URL: ' + '{presigned_url}'.substring(0, 100) + '...', 'debug');
+
         // Check DCV SDK
         if (typeof dcv !== 'undefined') {{
-            log('[Main] DCV SDK loaded successfully');
-            log('[Main] DCV methods: ' + Object.keys(dcv).join(', '));
-            
+            //log('[Main] DCV SDK loaded successfully', 'info');
+            //log('[Main] DCV methods: ' + Object.keys(dcv).join(', '), 'debug');
+
             // Configure DCV
             if (dcv.setWorkerPath) {{
                 dcv.setWorkerPath('/static/dcvjs/dcv/');
-                log('[Main] Set DCV worker path');
+                //log('[Main] Set DCV worker path', 'debug');
             }}
         }} else {{
-            log('[Main] ERROR: DCV SDK not found!');
+            //log('[Main] ERROR: DCV SDK not found!', 'error');
         }}
         
         // ADD CONTROL FUNCTIONS
@@ -630,14 +669,14 @@ button.active {
                     document.getElementById('release-control').style.display = 'inline-block';
                     document.getElementById('control-indicator').textContent = '🎮 You Have Control';
                     updateStatus('You have control');
-                    log('[Main] Control taken successfully');
+                    //log('[Main] Control taken successfully', 'debug');
                 }} else {{
                     updateStatus('Failed to take control: ' + data.message);
-                    log('[Main] ERROR: ' + data.message);
+                    //log('[Main] ERROR: ' + data.message, 'error');
                 }}
             }} catch (error) {{
                 updateStatus('Error: ' + error.message);
-                log('[Main] ERROR taking control: ' + error.message);
+                //log('[Main] ERROR taking control: ' + error.message, 'error');
             }}
         }};
         
@@ -652,14 +691,14 @@ button.active {
                     document.getElementById('release-control').style.display = 'none';
                     document.getElementById('control-indicator').textContent = 'Automation Active';
                     updateStatus('Control released');
-                    log('[Main] Control released successfully');
+                    //log('[Main] Control released successfully', 'debug');
                 }} else {{
                     updateStatus('Failed to release control: ' + data.message);
-                    log('[Main] ERROR: ' + data.message);
+                    //log('[Main] ERROR: ' + data.message, 'error');
                 }}
             }} catch (error) {{
                 updateStatus('Error: ' + error.message);
-                log('[Main] ERROR releasing control: ' + error.message);
+                //log('[Main] ERROR releasing control: ' + error.message, 'error');
             }}
         }};
         
@@ -667,47 +706,83 @@ button.active {
         window.setSize = function(width, height) {{
             if (viewer) {{
                 viewer.setDisplaySize(width, height);
-                
+
                 document.querySelectorAll('.size-selector button').forEach(btn => {{
                     btn.classList.remove('active');
                 }});
                 event.target.classList.add('active');
-                
+
                 updateStatus(`Display size: ${{width}}×${{height}}`);
+            }}
+        }};
+
+        // Debug mode toggle function
+        window.toggleDebugMode = function() {{
+            window.debugMode = !window.debugMode;
+            localStorage.setItem('dcv-debug-mode', window.debugMode.toString());
+
+            const toggleBtn = document.getElementById('debug-toggle');
+            if (window.debugMode) {{
+                toggleBtn.textContent = '🐛 Debug: ON';
+                toggleBtn.classList.add('active');
+                //log('[Main] Debug mode enabled - verbose logging active', 'info');
+                if (viewer) {{
+                    viewer.debugMode = true;
+                }}
+            }} else {{
+                toggleBtn.textContent = '🐛 Debug: OFF';
+                toggleBtn.classList.remove('active');
+                //console.log('[Main] Debug mode disabled - reduced logging active');
+                if (viewer) {{
+                    viewer.debugMode = false;
+                }}
             }}
         }};
         
         function updateStatus(message) {{
             document.getElementById('status').textContent = message;
-            log('[Main] Status: ' + message);
+            //log('[Main] Status: ' + message, 'debug');
         }}
         
         async function initialize() {{
             try {{
                 updateStatus('Initializing DCV viewer...');
                 
-                // Fetch debug info
-                try {{
-                    const debugResponse = await fetch('/api/debug-info');
-                    const debugData = await debugResponse.json();
-                    log('[Main] Debug info: ' + JSON.stringify(debugData, null, 2));
-                }} catch (e) {{
-                    log('[Main] Could not fetch debug info: ' + e.message);
+                // Fetch debug info (only in debug mode)
+                if (window.debugMode) {{
+                    try {{
+                        const debugResponse = await fetch('/api/debug-info');
+                        const debugData = await debugResponse.json();
+                        //log('[Main] Debug info: ' + JSON.stringify(debugData, null, 2), 'debug');
+                    }} catch (e) {{
+                        //log('[Main] Could not fetch debug info: ' + e.message, 'debug');
+                    }}
                 }}
                 
                 viewer = new BedrockAgentCoreLiveViewer('{presigned_url}', 'dcv-display');
-                viewer.setDisplaySize(1600, 900);
-                
+                viewer.debugMode = window.debugMode; // Sync debug mode
+                viewer.setDisplaySize(1920, 1080);
+
+                // Update debug toggle button state
+                const toggleBtn = document.getElementById('debug-toggle');
+                if (window.debugMode) {{
+                    toggleBtn.textContent = '🐛 Debug: ON';
+                    toggleBtn.classList.add('active');
+                }} else {{
+                    toggleBtn.textContent = '🐛 Debug: OFF';
+                    toggleBtn.classList.remove('active');
+                }}
+
                 updateStatus('Connecting to browser session...');
                 await viewer.connect();
-                
+
                 updateStatus('Connected - Display: 1600×900');
                 
             }} catch (error) {{
                 console.error('Failed to initialize viewer:', error);
                 updateStatus('Error: ' + error.message);
-                log('[Main] ERROR: ' + error.message);
-                log('[Main] Stack: ' + (error.stack || 'No stack trace'));
+                //log('[Main] ERROR: ' + error.message, 'error');
+                //log('[Main] Stack: ' + (error.stack || 'No stack trace'), 'error');
                 
                 if (error.message && error.message.includes('DCV SDK not loaded')) {{
                     document.getElementById('dcv-display').innerHTML = `
@@ -724,7 +799,7 @@ button.active {
         
         // Start initialization when page loads
         document.addEventListener('DOMContentLoaded', () => {{
-            log('[Main] DOM loaded, starting initialization...');
+            //log('[Main] DOM loaded, starting initialization...', 'info');
             initialize();
         }});
     </script>

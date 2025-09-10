@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect, Back
 from fastapi.responses import HTMLResponse, RedirectResponse
 from typing import List, Dict, Optional, Set
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from e2b_desktop import Sandbox
 
 # Import functions from sandbox_desktop.py
@@ -16,6 +16,9 @@ from sandbox_desktop import open_desktop_stream, setup_environment, create_sts
 # Session configuration constants
 BROWSER_SESSION_TIMEOUT = 3600  # 1 hour in seconds
 BROWSER_CLEANUP_INTERVAL = 300  # 5 minutes in seconds
+
+# Timezone configuration
+GMT_PLUS_8 = timezone(timedelta(hours=8))
 
 # These will be initialized from app.py
 manager = None
@@ -177,7 +180,7 @@ class WebSocketLogger:
                 return
                 
             # Get timestamp
-            timestamp = datetime.now().strftime("%H:%M:%S")
+            timestamp = datetime.now(GMT_PLUS_8).strftime("%H:%M:%S")
             
             # Create log entry
             log_entry = {
@@ -223,7 +226,7 @@ class SessionAwareWebSocketLogger:
                 return
                 
             # Get timestamp
-            timestamp = datetime.now().strftime("%H:%M:%S")
+            timestamp = datetime.now(GMT_PLUS_8).strftime("%H:%M:%S")
             
             # Create log entry
             log_entry = {
@@ -259,7 +262,7 @@ async def websocket_endpoint(websocket: WebSocket, session_token: Optional[str] 
         stderr_capture.buffer = []
     
     # Send initial connection message
-    timestamp = datetime.now().strftime("%H:%M:%S")
+    timestamp = datetime.now(GMT_PLUS_8).strftime("%H:%M:%S")
     await websocket.send_json({
         "type": "info",
         "timestamp": timestamp,
@@ -282,7 +285,7 @@ async def websocket_endpoint(websocket: WebSocket, session_token: Optional[str] 
                         # Send confirmation back to client
                         await websocket.send_json({
                             "type": "info",
-                            "timestamp": datetime.now().strftime("%H:%M:%S"),
+                            "timestamp": datetime.now(GMT_PLUS_8).strftime("%H:%M:%S"),
                             "data": f"Session identified: {session_id}"
                         })
                         
