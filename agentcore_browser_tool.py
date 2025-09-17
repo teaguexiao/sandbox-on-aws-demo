@@ -169,9 +169,40 @@ async def start_agentcore_browser(session_id: str = None, region: str = "us-west
         session.ws_url, session.headers = session.browser_client.generate_ws_headers()
 
         # Start viewer server with a unique port for this session
-        viewer_port = 8000 + hash(session_id) % 1000  # Generate unique port based on session ID
-        session.viewer_server = BrowserViewerServer(session.browser_client, port=viewer_port)
-        session.viewer_url = session.viewer_server.start(open_browser=False)  # Don't auto-open browser
+        # Use a more robust port generation to avoid collisions
+        import socket
+
+        def find_free_port(start_port=8000, max_attempts=100):
+            """Find a free port starting from start_port"""
+            for i in range(max_attempts):
+                port = start_port + i
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.bind(('localhost', port))
+                        return port
+                except OSError:
+                    continue
+            raise RuntimeError(f"Could not find a free port after {max_attempts} attempts")
+
+        viewer_port = find_free_port(8000)
+        if agentcore_logger:
+            agentcore_logger.info(f"Starting viewer server on port {viewer_port} for session {session_id}")
+
+        try:
+            session.viewer_server = BrowserViewerServer(session.browser_client, port=viewer_port)
+            session.viewer_url = session.viewer_server.start(open_browser=False)  # Don't auto-open browser
+
+            # Verify the server is actually running
+            if not session.viewer_server.is_running:
+                raise RuntimeError(f"Viewer server failed to start on port {viewer_port}")
+
+            if agentcore_logger:
+                agentcore_logger.info(f"Viewer server started successfully at {session.viewer_url}")
+
+        except Exception as e:
+            if agentcore_logger:
+                agentcore_logger.error(f"Failed to start viewer server: {e}")
+            raise RuntimeError(f"Failed to start viewer server on port {viewer_port}: {str(e)}")
         
         # Create browser profile with headers
         browser_profile = BrowserProfile(

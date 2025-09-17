@@ -242,20 +242,82 @@ function handleAgentcoreBrowserStarted(data) {
     const agentcoreSessionIdSpan = document.getElementById('agentcore-session-id');
     const agentcoreBrowserFrame = document.getElementById('agentcore-browser-frame');
     const agentcoreBrowserPlaceholder = document.getElementById('agentcore-browser-placeholder');
-    
+
     if (agentcoreControlsDiv) {
         agentcoreControlsDiv.style.display = 'flex';
     }
-    
+
     if (agentcoreSessionIdSpan) {
         agentcoreSessionIdSpan.textContent = data.session_id;
     }
-    
+
     // Show browser frame if viewer URL is available
     if (data.viewer_url && agentcoreBrowserFrame && agentcoreBrowserPlaceholder) {
-        agentcoreBrowserFrame.src = data.viewer_url;
-        agentcoreBrowserFrame.style.display = 'block';
-        agentcoreBrowserPlaceholder.style.display = 'none';
+        addAgentcoreLog(`Setting iframe src to: ${data.viewer_url}`, 'info');
+
+        // Function to check if the viewer server is healthy
+        async function checkViewerHealth(url, maxAttempts = 10, delay = 1000) {
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    const healthUrl = url + '/api/health';
+                    const response = await fetch(healthUrl, {
+                        method: 'GET',
+                        timeout: 5000
+                    });
+
+                    if (response.ok) {
+                        const healthData = await response.json();
+                        if (healthData.status === 'healthy') {
+                            addAgentcoreLog(`Viewer server is healthy (attempt ${attempt}/${maxAttempts})`, 'success');
+                            return true;
+                        }
+                    }
+                } catch (error) {
+                    addAgentcoreLog(`Health check attempt ${attempt}/${maxAttempts} failed: ${error.message}`, 'info');
+                }
+
+                if (attempt < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+            return false;
+        }
+
+        // Check server health before loading iframe
+        checkViewerHealth(data.viewer_url).then(isHealthy => {
+            if (isHealthy) {
+                // Add error handling for iframe loading
+                agentcoreBrowserFrame.onload = function() {
+                    addAgentcoreLog('Browser viewer loaded successfully', 'success');
+                };
+
+                agentcoreBrowserFrame.onerror = function() {
+                    addAgentcoreLog('Error loading browser viewer', 'error');
+                    // Fallback: show placeholder again
+                    agentcoreBrowserFrame.style.display = 'none';
+                    agentcoreBrowserPlaceholder.style.display = 'flex';
+                    agentcoreBrowserPlaceholder.innerHTML = '<p style="color: #dc3545; margin: 0;">Failed to load browser viewer. Check console for details.</p>';
+                };
+
+                // Set the iframe source
+                agentcoreBrowserFrame.src = data.viewer_url;
+                agentcoreBrowserFrame.style.display = 'block';
+                agentcoreBrowserPlaceholder.style.display = 'none';
+            } else {
+                addAgentcoreLog('Viewer server health check failed - cannot display browser', 'error');
+                agentcoreBrowserPlaceholder.innerHTML = '<p style="color: #dc3545; margin: 0;">Viewer server is not responding. Please try again.</p>';
+            }
+        }).catch(error => {
+            addAgentcoreLog(`Error during health check: ${error.message}`, 'error');
+            agentcoreBrowserPlaceholder.innerHTML = '<p style="color: #dc3545; margin: 0;">Failed to verify viewer server status.</p>';
+        });
+    } else {
+        addAgentcoreLog('No viewer URL provided or iframe elements not found', 'error');
+        console.log('Debug info:', {
+            viewer_url: data.viewer_url,
+            iframe_exists: !!agentcoreBrowserFrame,
+            placeholder_exists: !!agentcoreBrowserPlaceholder
+        });
     }
 
     // Show fullscreen button when browser session is active
@@ -266,7 +328,7 @@ function handleAgentcoreBrowserStarted(data) {
 
     // Start timer
     startAgentcoreTimer();
-    
+
     addAgentcoreLog('Agentcore browser session started successfully', 'success');
 }
 

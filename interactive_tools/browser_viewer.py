@@ -29,6 +29,7 @@ class BrowserViewerServer:
         self.port = port
         self.app = FastAPI(title="Bedrock-AgentCore Browser Viewer")
         self.server_thread = None
+        self.uvicorn_server = None
         self.is_running = False
         self.has_control = False  # Add control state tracking
         
@@ -523,8 +524,21 @@ button.active {
                 },
                 "server": {
                     "static_dir": str(self.static_dir),
-                    "dcv_dir": str(self.dcv_dir)
+                    "dcv_dir": str(self.dcv_dir),
+                    "port": self.port,
+                    "is_running": self.is_running
                 }
+            }
+
+        @self.app.get("/api/health")
+        async def health_check():
+            """Health check endpoint."""
+            return {
+                "status": "healthy" if self.is_running else "unhealthy",
+                "port": self.port,
+                "session_id": self.browser_client.session_id,
+                "has_control": self.has_control,
+                "timestamp": time.time()
             }
     
     def _check_dcv_files(self):
@@ -808,21 +822,89 @@ button.active {
     
     def start(self, open_browser: bool = True) -> str:
         """Start the viewer server."""
+        import uvicorn
+        import asyncio
+
         def run_server():
-            uvicorn.run(self.app, host="0.0.0.0", port=self.port, log_level="error")
-        
-        self.server_thread = threading.Thread(target=run_server, daemon=True)
+            try:
+                # Create a new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+                # Configure uvicorn with proper settings
+                config = uvicorn.Config(
+                    self.app,
+                    host="0.0.0.0",
+                    port=self.port,
+                    log_level="error",
+                    loop="asyncio"
+                )
+                server = uvicorn.Server(config)
+
+                # Store server reference for cleanup
+                self.uvicorn_server = server
+
+                # Run the server
+                loop.run_until_complete(server.serve())
+            except Exception as e:
+                console.print(f"[red]Error starting viewer server: {e}[/red]")
+                self.is_running = False
+
+        # Use non-daemon thread so server stays alive
+        self.server_thread = threading.Thread(target=run_server, daemon=False)
         self.server_thread.start()
         self.is_running = True
-        
-        time.sleep(1)
-        
+
+        # Wait longer for server to start and verify it's running
+        time.sleep(3)
+
         viewer_url = f"http://localhost:{self.port}"
-        console.print(f"\n[green]✅ Viewer server running at: {viewer_url}[/green]")
-        console.print("[dim]Check browser console (F12) for detailed debug information[/dim]\n")
-        
-        if open_browser:
+
+        # Verify server is actually running
+        try:
+            import requests
+            response = requests.get(f"{viewer_url}/api/session-info", timeout=5)
+            if response.status_code == 200:
+                console.print(f"\n[green]✅ Viewer server running at: {viewer_url}[/green]")
+                console.print("[dim]Check browser console (F12) for detailed debug information[/dim]\n")
+            else:
+                console.print(f"[yellow]⚠️ Server started but not responding properly (status: {response.status_code})[/yellow]")
+        except Exception as e:
+            console.print(f"[red]❌ Server may not be running properly: {e}[/red]")
+            self.is_running = False
+
+        if open_browser and self.is_running:
             console.print("[cyan]Opening browser...[/cyan]")
             webbrowser.open(viewer_url)
-        
+
         return viewer_url
+
+    def stop(self):
+        """Stop the viewer server."""
+        if self.is_running:
+            console.print("[yellow]Stopping viewer server...[/yellow]")
+
+            # Stop uvicorn server
+            if self.uvicorn_server:
+                try:
+                    self.uvicorn_server.should_exit = True
+                    if hasattr(self.uvicorn_server, 'force_exit'):
+                        self.uvicorn_server.force_exit = True
+                except Exception as e:
+                    console.print(f"[red]Error stopping uvicorn server: {e}[/red]")
+
+            # Wait for server thread to finish
+            if self.server_thread and self.server_thread.is_alive():
+                try:
+                    self.server_thread.join(timeout=5)
+                    if self.server_thread.is_alive():
+                        console.print("[yellow]Server thread did not stop gracefully[/yellow]")
+                except Exception as e:
+                    console.print(f"[red]Error joining server thread: {e}[/red]")
+
+            self.is_running = False
+            self.uvicorn_server = None
+            self.server_thread = None
+            console.print("[green]✅ Viewer server stopped[/green]")
+        else:
+            console.print("[yellow]Viewer server is not running[/yellow]")
