@@ -8,6 +8,7 @@ let agentcoreSessionId = null;
 let agentcoreSocket = null;
 let agentcoreTimerInterval = null;
 let agentcoreSessionTimeout = 1200; // 20 minutes in seconds
+let agentcoreBrowserStarted = false; // Track if browser has been started to prevent duplicates
 
 // Generate unique session ID for Agentcore
 function generateAgentcoreSessionId() {
@@ -168,7 +169,7 @@ function connectAgentcoreWebSocket() {
 async function runAgentcoreBrowserTask(prompt) {
     try {
         addAgentcoreLog(`Starting Agentcore browser task: ${prompt}`, 'info');
-        
+
         // First, start the browser if not already started
         const startResponse = await fetch('/start-agentcore-browser', {
             method: 'POST',
@@ -180,11 +181,24 @@ async function runAgentcoreBrowserTask(prompt) {
                 'region': 'us-west-2'
             })
         });
-        
+
         const startResult = await startResponse.json();
+        console.log('Start browser result:', startResult);
+        addAgentcoreLog(`Start browser result: ${JSON.stringify(startResult)}`, 'info');
+
         if (startResult.status !== 'success') {
             addAgentcoreLog(`Failed to start browser: ${startResult.message}`, 'error');
             return;
+        }
+
+        // If we get a viewer_url directly from the start response, handle it immediately
+        if (startResult.viewer_url) {
+            addAgentcoreLog(`Received viewer URL from start response: ${startResult.viewer_url}`, 'info');
+            handleAgentcoreBrowserStarted({
+                session_id: startResult.session_id,
+                viewer_url: startResult.viewer_url,
+                status: 'ready'
+            });
         }
         
         // Then run the task
@@ -238,10 +252,20 @@ async function stopAgentcoreBrowser() {
 
 // Handle Agentcore browser started
 function handleAgentcoreBrowserStarted(data) {
+    // Prevent duplicate handling
+    if (agentcoreBrowserStarted) {
+        addAgentcoreLog('Browser already started, ignoring duplicate event', 'info');
+        return;
+    }
+
     const agentcoreControlsDiv = document.getElementById('agentcore-controls');
     const agentcoreSessionIdSpan = document.getElementById('agentcore-session-id');
     const agentcoreBrowserFrame = document.getElementById('agentcore-browser-frame');
     const agentcoreBrowserPlaceholder = document.getElementById('agentcore-browser-placeholder');
+
+    // Debug logging
+    console.log('handleAgentcoreBrowserStarted called with data:', data);
+    addAgentcoreLog(`Received browser started event: ${JSON.stringify(data)}`, 'info');
 
     if (agentcoreControlsDiv) {
         agentcoreControlsDiv.style.display = 'flex';
@@ -257,22 +281,33 @@ function handleAgentcoreBrowserStarted(data) {
 
         // Function to check if the viewer server is healthy
         async function checkViewerHealth(url, maxAttempts = 10, delay = 1000) {
+            addAgentcoreLog(`Starting health checks for URL: ${url}`, 'info');
+            console.log('checkViewerHealth called with URL:', url);
+
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
                     const healthUrl = url + '/api/health';
+                    addAgentcoreLog(`Health check attempt ${attempt}/${maxAttempts}: ${healthUrl}`, 'info');
+                    console.log(`Health check attempt ${attempt}: ${healthUrl}`);
+
                     const response = await fetch(healthUrl, {
                         method: 'GET',
                         timeout: 5000
                     });
 
+                    console.log(`Health check response:`, response);
+                    addAgentcoreLog(`Health check response status: ${response.status}`, 'info');
+
                     if (response.ok) {
                         const healthData = await response.json();
+                        console.log('Health data:', healthData);
                         if (healthData.status === 'healthy') {
                             addAgentcoreLog(`Viewer server is healthy (attempt ${attempt}/${maxAttempts})`, 'success');
                             return true;
                         }
                     }
                 } catch (error) {
+                    console.error(`Health check attempt ${attempt} error:`, error);
                     addAgentcoreLog(`Health check attempt ${attempt}/${maxAttempts} failed: ${error.message}`, 'info');
                 }
 
@@ -329,6 +364,9 @@ function handleAgentcoreBrowserStarted(data) {
     // Start timer
     startAgentcoreTimer();
 
+    // Mark as started
+    agentcoreBrowserStarted = true;
+
     addAgentcoreLog('Agentcore browser session started successfully', 'success');
 }
 
@@ -355,7 +393,10 @@ function handleAgentcoreBrowserStopped() {
 
     // Stop timer
     stopAgentcoreTimer();
-    
+
+    // Reset started flag
+    agentcoreBrowserStarted = false;
+
     addAgentcoreLog('Agentcore browser session stopped', 'info');
 }
 

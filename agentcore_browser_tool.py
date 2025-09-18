@@ -145,13 +145,18 @@ async def start_agentcore_browser(session_id: str = None, region: str = "us-west
     if not session_id:
         session_id = agentcore_session_manager.create_session()
     else:
-        # Check if session exists, create if not
-        session = agentcore_session_manager.get_session(session_id)
-        if not session:
-            session = AgentcoreBrowserSession(session_id)
-            agentcore_session_manager.sessions[session_id] = session
+        # Check if session exists, clean up if it does, then create new
+        existing_session = agentcore_session_manager.get_session(session_id)
+        if existing_session:
             if agentcore_logger:
-                agentcore_logger.info(f"Created new Agentcore session with provided ID: {session_id}")
+                agentcore_logger.info(f"Cleaning up existing session {session_id} before creating new one")
+            await agentcore_session_manager.cleanup_session(session_id)
+
+        # Create new session
+        session = AgentcoreBrowserSession(session_id)
+        agentcore_session_manager.sessions[session_id] = session
+        if agentcore_logger:
+            agentcore_logger.info(f"Created new Agentcore session with provided ID: {session_id}")
     
     session = agentcore_session_manager.get_session(session_id)
     if not session:

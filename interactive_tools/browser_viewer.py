@@ -13,6 +13,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from rich.console import Console
 
@@ -28,6 +29,16 @@ class BrowserViewerServer:
         self.browser_client = browser_client
         self.port = port
         self.app = FastAPI(title="Bedrock-AgentCore Browser Viewer")
+
+        # Add CORS middleware to allow cross-origin requests
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Allow all origins for development
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
         self.server_thread = None
         self.uvicorn_server = None
         self.is_running = False
