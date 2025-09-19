@@ -134,35 +134,41 @@ document.addEventListener('DOMContentLoaded', function() {
         const messageSpan = document.createElement('span');
         messageSpan.textContent = message;
         logEntry.appendChild(messageSpan);
-        
-        logsContainer.appendChild(logEntry);
-        logsContainer.scrollTop = logsContainer.scrollHeight;
+
+        if (logsContainer) {
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
     }
     
     // Handle desktop started event
     function handleDesktopStarted(data) {
         // Update UI
-        
+
         // Show sandbox ID (session info removed per user request)
-        if (data.sandbox_id) {
+        if (data.sandbox_id && sandboxIdSpan) {
             sandboxIdSpan.textContent = `ID: ${data.sandbox_id}`;
         }
-        
+
         // Load stream URL in iframe
-        if (data.stream_url) {
+        if (data.stream_url && streamFrame && streamPlaceholder) {
             streamFrame.src = data.stream_url;
             streamFrame.style.display = 'block';
             streamPlaceholder.style.display = 'none';
         }
-        
+
         // Enable stop button
-        stopDesktopBtn.disabled = false;
-        stopDesktopBtn.classList.add('btn-danger');
-        stopDesktopBtn.classList.remove('btn-secondary');
-        
+        if (stopDesktopBtn) {
+            stopDesktopBtn.disabled = false;
+            stopDesktopBtn.classList.add('btn-danger');
+            stopDesktopBtn.classList.remove('btn-secondary');
+        }
+
         // Show sandbox controls
-        sandboxControlsDiv.style.display = 'flex';
-        
+        if (sandboxControlsDiv) {
+            sandboxControlsDiv.style.display = 'flex';
+        }
+
         // Start timer if timeout is provided
         if (data.timeout) {
             sandboxTimeout = parseInt(data.timeout);
@@ -170,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             startSandboxTimer(sandboxTimeout); // Use default timeout
         }
-        
+
         addLog('Desktop started successfully', 'success');
     }
     
@@ -205,96 +211,116 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateTimerDisplay(seconds) {
         const minutes = Math.floor(seconds / 60);
         const remainingSeconds = seconds % 60;
-        
+
         // Format as MM:SS
         const formattedTime = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-        
+
         // Update display
-        sandboxTimerSpan.textContent = formattedTime;
+        if (sandboxTimerSpan) {
+            sandboxTimerSpan.textContent = formattedTime;
+        }
         
         // Change color based on remaining time
-        if (seconds < 60) {
-            sandboxTimerSpan.className = 'badge bg-danger me-2'; // Less than 1 minute
-        } else if (seconds < 300) {
-            sandboxTimerSpan.className = 'badge bg-warning me-2'; // Less than 5 minutes
-        } else {
-            sandboxTimerSpan.className = 'badge bg-secondary me-2'; // More than 5 minutes
+        if (sandboxTimerSpan) {
+            if (seconds < 60) {
+                sandboxTimerSpan.className = 'badge bg-danger me-2'; // Less than 1 minute
+            } else if (seconds < 300) {
+                sandboxTimerSpan.className = 'badge bg-warning me-2'; // Less than 5 minutes
+            } else {
+                sandboxTimerSpan.className = 'badge bg-secondary me-2'; // More than 5 minutes
+            }
         }
     }
     
     // Handle desktop killed event
     function handleDesktopKilled() {
         // Update UI
-        
+
         // Clear sandbox ID
-        sandboxIdSpan.textContent = '';
-        
+        if (sandboxIdSpan) {
+            sandboxIdSpan.textContent = '';
+        }
+
         // Hide iframe and show placeholder
-        streamFrame.src = '';
-        streamFrame.style.display = 'none';
-        streamPlaceholder.style.display = 'flex';
-        
+        if (streamFrame && streamPlaceholder) {
+            streamFrame.src = '';
+            streamFrame.style.display = 'none';
+            streamPlaceholder.style.display = 'flex';
+        }
+
         // Disable stop button
-        stopDesktopBtn.disabled = true;
-        stopDesktopBtn.classList.remove('btn-danger');
-        stopDesktopBtn.classList.add('btn-secondary');
-        
+        if (stopDesktopBtn) {
+            stopDesktopBtn.disabled = true;
+            stopDesktopBtn.classList.remove('btn-danger');
+            stopDesktopBtn.classList.add('btn-secondary');
+        }
+
         // Hide sandbox controls
-        sandboxControlsDiv.style.display = 'none';
-        
+        if (sandboxControlsDiv) {
+            sandboxControlsDiv.style.display = 'none';
+        }
+
         // Stop timer
         if (timerInterval) {
             clearInterval(timerInterval);
             timerInterval = null;
         }
-        
+
         // Reset timer display
-        sandboxTimerSpan.textContent = '00:00';
-        sandboxTimerSpan.className = 'badge bg-secondary me-2';
+        if (sandboxTimerSpan) {
+            sandboxTimerSpan.textContent = '00:00';
+            sandboxTimerSpan.className = 'badge bg-secondary me-2';
+        }
         
         addLog('Desktop killed successfully', 'success');
     }
     
     // Run full workflow
     // Run full workflow
-    runWorkflowBtn.addEventListener('click', async function() {
-        const query = taskInput.value.trim();
-        
-        if (!query) {
-            addLog('Please enter a task prompt', 'error');
-            return;
-        }
-        
-        // Show sandbox controls when task is started
-        sandboxControlsDiv.style.display = 'flex';
-        
-        addLog(`Starting full workflow with task: ${query}`, 'info');
-        
-        try {
-            const formData = new FormData();
-            formData.append('query', query);
-            formData.append('session_id', sessionId);
-            
-            const response = await fetch('/run-workflow', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.status === 'error') {
-                addLog(`Error running workflow: ${data.message}`, 'error');
-            } else {
-                addLog('Workflow started successfully', 'success');
+    if (runWorkflowBtn) {
+        runWorkflowBtn.addEventListener('click', async function() {
+            const query = taskInput.value.trim();
+
+            if (!query) {
+                addLog('Please enter a task prompt', 'error');
+                return;
             }
-        } catch (error) {
-            addLog(`Error running workflow: ${error.message}`, 'error');
-        }
-    });
+
+            // Show sandbox controls when task is started
+            if (sandboxControlsDiv) {
+                sandboxControlsDiv.style.display = 'flex';
+            }
+
+            addLog(`Starting full workflow with task: ${query}`, 'info');
+
+            try {
+                const formData = new FormData();
+                formData.append('query', query);
+                formData.append('session_id', sessionId);
+
+                const response = await fetch('/run-workflow', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'error') {
+                    addLog(`Error running workflow: ${data.message}`, 'error');
+                } else {
+                    addLog('Workflow started successfully', 'success');
+                }
+            } catch (error) {
+                addLog(`Error running workflow: ${error.message}`, 'error');
+            }
+        });
+    }
     
     // Clear logs function
     function clearLogs() {
-        logsContainer.innerHTML = '';
+        if (logsContainer) {
+            logsContainer.innerHTML = '';
+        }
         // Send message to server to clear logs buffer
         if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({action: 'clear_logs'}));
@@ -316,55 +342,65 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Clear logs button click handler
-    clearLogsBtn.addEventListener('click', clearLogs);
-    
+    if (clearLogsBtn) {
+        clearLogsBtn.addEventListener('click', clearLogs);
+    }
+
     // Example task buttons
-    exampleTaskBtns.forEach(button => {
-        button.addEventListener('click', function() {
-            const prompt = this.getAttribute('data-prompt');
-            if (prompt) {
-                // Set the prompt in the task input
-                taskInput.value = prompt;
-                
-                // Highlight the selected button
-                exampleTaskBtns.forEach(btn => btn.classList.remove('active', 'btn-secondary'));
-                this.classList.add('active', 'btn-secondary');
-                this.classList.remove('btn-outline-secondary');
-                
-                // Log the selection
-                addLog(`Example task selected: ${this.textContent}`, 'info');
-                
-                // Run the task automatically
-                runWorkflowBtn.click();
+    if (exampleTaskBtns.length > 0) {
+        exampleTaskBtns.forEach(button => {
+            button.addEventListener('click', function() {
+                const prompt = this.getAttribute('data-prompt');
+                if (prompt) {
+                    // Set the prompt in the task input
+                    if (taskInput) {
+                        taskInput.value = prompt;
+                    }
+
+                    // Highlight the selected button
+                    exampleTaskBtns.forEach(btn => btn.classList.remove('active', 'btn-secondary'));
+                    this.classList.add('active', 'btn-secondary');
+                    this.classList.remove('btn-outline-secondary');
+
+                    // Log the selection
+                    addLog(`Example task selected: ${this.textContent}`, 'info');
+
+                    // Run the task automatically
+                    if (runWorkflowBtn) {
+                        runWorkflowBtn.click();
+                    }
+                }
+            });
+        });
+    }
+
+    // Stop desktop button
+    if (stopDesktopBtn) {
+        stopDesktopBtn.addEventListener('click', async function() {
+            if (confirm('Are you sure you want to stop the desktop?')) {
+                addLog('Stopping desktop...', 'info');
+
+                try {
+                    const formData = new FormData();
+                    formData.append('session_id', sessionId);
+
+                    const response = await fetch('/kill-desktop', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'error') {
+                        addLog(`Error stopping desktop: ${data.message}`, 'error');
+                    }
+                    // Success will be handled by the WebSocket message
+                } catch (error) {
+                    addLog(`Error stopping desktop: ${error.message}`, 'error');
+                }
             }
         });
-    });
-    
-    // Stop desktop button
-    stopDesktopBtn.addEventListener('click', async function() {
-        if (confirm('Are you sure you want to stop the desktop?')) {
-            addLog('Stopping desktop...', 'info');
-            
-            try {
-                const formData = new FormData();
-                formData.append('session_id', sessionId);
-                
-                const response = await fetch('/kill-desktop', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                if (data.status === 'error') {
-                    addLog(`Error stopping desktop: ${data.message}`, 'error');
-                }
-                // Success will be handled by the WebSocket message
-            } catch (error) {
-                addLog(`Error stopping desktop: ${error.message}`, 'error');
-            }
-        }
-    });
+    }
     
     // Initialize WebSocket connection
     connectWebSocket();
@@ -377,7 +413,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Image enlargement functionality
     const architectureImages = document.querySelectorAll('.architecture-img');
-    const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+    const imageModalElement = document.getElementById('imageModal');
+    const imageModal = imageModalElement ? new bootstrap.Modal(imageModalElement) : null;
     const modalImage = document.getElementById('modalImage');
     const modalTitle = document.getElementById('imageModalLabel');
     
@@ -401,23 +438,29 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Image click handler function
     function handleImageClick() {
-        modalImage.src = this.src;
-        
+        if (modalImage) {
+            modalImage.src = this.src;
+        }
+
         // Set modal title based on image context
-        if (this.alt) {
-            modalTitle.textContent = this.alt;
-        } else {
-            // Try to find a heading before the image
-            const prevHeading = this.previousElementSibling;
-            if (prevHeading && (prevHeading.tagName === 'H4' || prevHeading.tagName === 'H3')) {
-                modalTitle.textContent = prevHeading.textContent;
+        if (modalTitle) {
+            if (this.alt) {
+                modalTitle.textContent = this.alt;
             } else {
-                modalTitle.textContent = 'Enlarged Image';
+                // Try to find a heading before the image
+                const prevHeading = this.previousElementSibling;
+                if (prevHeading && (prevHeading.tagName === 'H4' || prevHeading.tagName === 'H3')) {
+                    modalTitle.textContent = prevHeading.textContent;
+                } else {
+                    modalTitle.textContent = 'Enlarged Image';
+                }
             }
         }
-        
+
         // Show the modal
-        imageModal.show();
+        if (imageModal) {
+            imageModal.show();
+        }
     }
     
     // Initialize all image modals

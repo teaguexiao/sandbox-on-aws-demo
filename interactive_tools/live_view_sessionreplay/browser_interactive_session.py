@@ -624,7 +624,7 @@ def view_recordings(s3_location):
                 server_thread.daemon = True
                 server_thread.start()
                 
-                url = f"http://localhost:{port}"
+                url = f"https://dcv.teague.live:{port}"
                 
                 console.print(Panel(
                     f"[bold cyan]Session Replay Viewer Running[/bold cyan]\n\n"

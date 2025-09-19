@@ -7,13 +7,14 @@ import os
 import time
 import threading
 import webbrowser
+import ssl
+import subprocess
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from rich.console import Console
 
@@ -29,18 +30,7 @@ class BrowserViewerServer:
         self.browser_client = browser_client
         self.port = port
         self.app = FastAPI(title="Bedrock-AgentCore Browser Viewer")
-
-        # Add CORS middleware to allow cross-origin requests
-        self.app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],  # Allow all origins for development
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-
         self.server_thread = None
-        self.uvicorn_server = None
         self.is_running = False
         self.has_control = False  # Add control state tracking
         
@@ -64,9 +54,67 @@ class BrowserViewerServer:
         # Mount static files
         self.app.mount("/static", StaticFiles(directory=str(self.static_dir)), name="static")
         
+        # Setup SSL certificates
+        self.ssl_cert_path, self.ssl_key_path = self._setup_ssl_certificates()
+
         # Setup routes
         self._setup_routes()
-    
+
+    def _setup_ssl_certificates(self):
+        """Setup SSL certificates for HTTPS."""
+        domain = "dcv.teague.live"
+
+        # First, try to use Let's Encrypt certificates (check if accessible)
+        letsencrypt_cert_path = Path(f"/etc/letsencrypt/live/{domain}/fullchain.pem")
+        letsencrypt_key_path = Path(f"/etc/letsencrypt/live/{domain}/privkey.pem")
+
+        # Check if Let's Encrypt certificates exist and are readable
+        try:
+            if letsencrypt_cert_path.exists() and letsencrypt_key_path.exists():
+                # Test if we can actually read the files
+                with open(letsencrypt_cert_path, 'r') as f:
+                    f.read(1)  # Try to read first byte
+                with open(letsencrypt_key_path, 'r') as f:
+                    f.read(1)  # Try to read first byte
+                console.print(f"[green]✅ Using Let's Encrypt certificates for {domain}[/green]")
+                return str(letsencrypt_cert_path), str(letsencrypt_key_path)
+        except (PermissionError, FileNotFoundError) as e:
+            console.print(f"[yellow]⚠️  Let's Encrypt certificates not accessible: {e}[/yellow]")
+            console.print(f"[yellow]Falling back to project certificates[/yellow]")
+
+        # Fallback to project-local certificates
+        cert_dir = self.package_dir / "ssl"
+        cert_dir.mkdir(exist_ok=True)
+
+        cert_path = cert_dir / "server.crt"
+        key_path = cert_dir / "server.key"
+
+        # Check if project certificates exist and are Let's Encrypt copies
+        if cert_path.exists() and key_path.exists():
+            console.print(f"[green]✅ Using project SSL certificates for {domain}[/green]")
+            return str(cert_path), str(key_path)
+
+        # Generate self-signed certificate as last resort
+        console.print("[yellow]Generating self-signed SSL certificate for HTTPS...[/yellow]")
+        console.print("[dim]For production, consider using Let's Encrypt: sudo python3 setup_letsencrypt_ssl.py[/dim]")
+        try:
+            subprocess.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:4096", "-keyout", str(key_path),
+                "-out", str(cert_path), "-days", "365", "-nodes", "-subj",
+                f"/C=US/ST=State/L=City/O=Organization/CN={domain}"
+            ], check=True, capture_output=True)
+            console.print("[green]✅ Self-signed SSL certificate generated successfully[/green]")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]Failed to generate SSL certificate: {e}[/red]")
+            console.print("[yellow]Falling back to HTTP (mixed content issues may occur)[/yellow]")
+            return None, None
+        except FileNotFoundError:
+            console.print("[red]OpenSSL not found. Please install OpenSSL to use HTTPS.[/red]")
+            console.print("[yellow]Falling back to HTTP (mixed content issues may occur)[/yellow]")
+            return None, None
+
+        return str(cert_path), str(key_path)
+
     def _create_static_files(self):
         """Create the JavaScript and CSS files included with the SDK."""
         
@@ -535,21 +583,8 @@ button.active {
                 },
                 "server": {
                     "static_dir": str(self.static_dir),
-                    "dcv_dir": str(self.dcv_dir),
-                    "port": self.port,
-                    "is_running": self.is_running
+                    "dcv_dir": str(self.dcv_dir)
                 }
-            }
-
-        @self.app.get("/api/health")
-        async def health_check():
-            """Health check endpoint."""
-            return {
-                "status": "healthy" if self.is_running else "unhealthy",
-                "port": self.port,
-                "session_id": self.browser_client.session_id,
-                "has_control": self.has_control,
-                "timestamp": time.time()
             }
     
     def _check_dcv_files(self):
@@ -833,89 +868,37 @@ button.active {
     
     def start(self, open_browser: bool = True) -> str:
         """Start the viewer server."""
-        import uvicorn
-        import asyncio
-
         def run_server():
-            try:
-                # Create a new event loop for this thread
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-                # Configure uvicorn with proper settings
-                config = uvicorn.Config(
+            if self.ssl_cert_path and self.ssl_key_path:
+                # Run with SSL
+                uvicorn.run(
                     self.app,
                     host="0.0.0.0",
                     port=self.port,
                     log_level="error",
-                    loop="asyncio"
+                    ssl_certfile=self.ssl_cert_path,
+                    ssl_keyfile=self.ssl_key_path
                 )
-                server = uvicorn.Server(config)
+            else:
+                # Fallback to HTTP
+                uvicorn.run(self.app, host="0.0.0.0", port=self.port, log_level="error")
 
-                # Store server reference for cleanup
-                self.uvicorn_server = server
-
-                # Run the server
-                loop.run_until_complete(server.serve())
-            except Exception as e:
-                console.print(f"[red]Error starting viewer server: {e}[/red]")
-                self.is_running = False
-
-        # Use non-daemon thread so server stays alive
-        self.server_thread = threading.Thread(target=run_server, daemon=False)
+        self.server_thread = threading.Thread(target=run_server, daemon=True)
         self.server_thread.start()
         self.is_running = True
 
-        # Wait longer for server to start and verify it's running
-        time.sleep(3)
+        time.sleep(1)
 
-        viewer_url = f"http://localhost:{self.port}"
+        # Use HTTPS if SSL is configured, otherwise HTTP
+        protocol = "https" if (self.ssl_cert_path and self.ssl_key_path) else "http"
+        viewer_url = f"{protocol}://dcv.teague.live:{self.port}"
+        console.print(f"\n[green]✅ Viewer server running at: {viewer_url}[/green]")
+        if protocol == "http":
+            console.print("[yellow]⚠️  Running on HTTP - mixed content issues may occur with HTTPS parent pages[/yellow]")
+        console.print("[dim]Check browser console (F12) for detailed debug information[/dim]\n")
 
-        # Verify server is actually running
-        try:
-            import requests
-            response = requests.get(f"{viewer_url}/api/session-info", timeout=5)
-            if response.status_code == 200:
-                console.print(f"\n[green]✅ Viewer server running at: {viewer_url}[/green]")
-                console.print("[dim]Check browser console (F12) for detailed debug information[/dim]\n")
-            else:
-                console.print(f"[yellow]⚠️ Server started but not responding properly (status: {response.status_code})[/yellow]")
-        except Exception as e:
-            console.print(f"[red]❌ Server may not be running properly: {e}[/red]")
-            self.is_running = False
-
-        if open_browser and self.is_running:
+        if open_browser:
             console.print("[cyan]Opening browser...[/cyan]")
             webbrowser.open(viewer_url)
 
         return viewer_url
-
-    def stop(self):
-        """Stop the viewer server."""
-        if self.is_running:
-            console.print("[yellow]Stopping viewer server...[/yellow]")
-
-            # Stop uvicorn server
-            if self.uvicorn_server:
-                try:
-                    self.uvicorn_server.should_exit = True
-                    if hasattr(self.uvicorn_server, 'force_exit'):
-                        self.uvicorn_server.force_exit = True
-                except Exception as e:
-                    console.print(f"[red]Error stopping uvicorn server: {e}[/red]")
-
-            # Wait for server thread to finish
-            if self.server_thread and self.server_thread.is_alive():
-                try:
-                    self.server_thread.join(timeout=5)
-                    if self.server_thread.is_alive():
-                        console.print("[yellow]Server thread did not stop gracefully[/yellow]")
-                except Exception as e:
-                    console.print(f"[red]Error joining server thread: {e}[/red]")
-
-            self.is_running = False
-            self.uvicorn_server = None
-            self.server_thread = None
-            console.print("[green]✅ Viewer server stopped[/green]")
-        else:
-            console.print("[yellow]Viewer server is not running[/yellow]")

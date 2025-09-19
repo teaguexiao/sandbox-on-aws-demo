@@ -911,7 +911,7 @@ class SessionReplayViewer:
         for port in range(self.port, self.port + 100):
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.bind(('127.0.0.1', port))
+                    s.bind(('0.0.0.0', port))
                     return port
             except OSError:
                 continue
@@ -937,7 +937,7 @@ class SessionReplayViewer:
         server_thread.daemon = True
         server_thread.start()
         
-        url = f"http://localhost:{port}"
+        url = f"https://dcv.teague.live:{port}"
         
         console.print(Panel(
             f"[bold cyan]Session Replay Viewer Running[/bold cyan]\n\n"

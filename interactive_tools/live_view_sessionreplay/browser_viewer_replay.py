@@ -7,6 +7,7 @@ import os
 import time
 import threading
 import webbrowser
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -55,8 +56,66 @@ class BrowserViewerServer:
             "/static", StaticFiles(directory=str(self.static_dir)), name="static"
         )
 
+        # Setup SSL certificates
+        self.ssl_cert_path, self.ssl_key_path = self._setup_ssl_certificates()
+
         # Setup routes
         self._setup_routes()
+
+    def _setup_ssl_certificates(self):
+        """Setup SSL certificates for HTTPS."""
+        domain = "dcv.teague.live"
+
+        # First, try to use Let's Encrypt certificates (check if accessible)
+        letsencrypt_cert_path = Path(f"/etc/letsencrypt/live/{domain}/fullchain.pem")
+        letsencrypt_key_path = Path(f"/etc/letsencrypt/live/{domain}/privkey.pem")
+
+        # Check if Let's Encrypt certificates exist and are readable
+        try:
+            if letsencrypt_cert_path.exists() and letsencrypt_key_path.exists():
+                # Test if we can actually read the files
+                with open(letsencrypt_cert_path, 'r') as f:
+                    f.read(1)  # Try to read first byte
+                with open(letsencrypt_key_path, 'r') as f:
+                    f.read(1)  # Try to read first byte
+                console.print(f"[green]✅ Using Let's Encrypt certificates for {domain}[/green]")
+                return str(letsencrypt_cert_path), str(letsencrypt_key_path)
+        except (PermissionError, FileNotFoundError) as e:
+            console.print(f"[yellow]⚠️  Let's Encrypt certificates not accessible: {e}[/yellow]")
+            console.print(f"[yellow]Falling back to project certificates[/yellow]")
+
+        # Fallback to project-local certificates
+        cert_dir = self.package_dir / "ssl"
+        cert_dir.mkdir(exist_ok=True)
+
+        cert_path = cert_dir / "server.crt"
+        key_path = cert_dir / "server.key"
+
+        # Check if project certificates exist and are Let's Encrypt copies
+        if cert_path.exists() and key_path.exists():
+            console.print(f"[green]✅ Using project SSL certificates for {domain}[/green]")
+            return str(cert_path), str(key_path)
+
+        # Generate self-signed certificate as last resort
+        console.print("[yellow]Generating self-signed SSL certificate for HTTPS...[/yellow]")
+        console.print("[dim]For production, consider using Let's Encrypt: sudo python3 setup_letsencrypt_ssl.py[/dim]")
+        try:
+            subprocess.run([
+                "openssl", "req", "-x509", "-newkey", "rsa:4096", "-keyout", str(key_path),
+                "-out", str(cert_path), "-days", "365", "-nodes", "-subj",
+                f"/C=US/ST=State/L=City/O=Organization/CN={domain}"
+            ], check=True, capture_output=True)
+            console.print("[green]✅ Self-signed SSL certificate generated successfully[/green]")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]Failed to generate SSL certificate: {e}[/red]")
+            console.print("[yellow]Falling back to HTTP (mixed content issues may occur)[/yellow]")
+            return None, None
+        except FileNotFoundError:
+            console.print("[red]OpenSSL not found. Please install OpenSSL to use HTTPS.[/red]")
+            console.print("[yellow]Falling back to HTTP (mixed content issues may occur)[/yellow]")
+            return None, None
+
+        return str(cert_path), str(key_path)
 
     def _create_static_files(self):
         """Create the JavaScript and CSS files included with the SDK."""
@@ -955,7 +1014,19 @@ button.active {
         """Start the viewer server."""
 
         def run_server():
-            uvicorn.run(self.app, host="0.0.0.0", port=self.port, log_level="error")
+            if self.ssl_cert_path and self.ssl_key_path:
+                # Run with SSL
+                uvicorn.run(
+                    self.app,
+                    host="0.0.0.0",
+                    port=self.port,
+                    log_level="error",
+                    ssl_certfile=self.ssl_cert_path,
+                    ssl_keyfile=self.ssl_key_path
+                )
+            else:
+                # Fallback to HTTP
+                uvicorn.run(self.app, host="0.0.0.0", port=self.port, log_level="error")
 
         self.server_thread = threading.Thread(target=run_server, daemon=True)
         self.server_thread.start()
@@ -963,8 +1034,12 @@ button.active {
 
         time.sleep(1)
 
-        viewer_url = f"http://localhost:{self.port}"
+        # Use HTTPS if SSL is configured, otherwise HTTP
+        protocol = "https" if (self.ssl_cert_path and self.ssl_key_path) else "http"
+        viewer_url = f"{protocol}://dcv.teague.live:{self.port}"
         console.print(f"\n[green]✅ Viewer server running at: {viewer_url}[/green]")
+        if protocol == "http":
+            console.print("[yellow]⚠️  Running on HTTP - mixed content issues may occur with HTTPS parent pages[/yellow]")
         console.print(
             "[dim]Check browser console (F12) for detailed debug information[/dim]\n"
         )
